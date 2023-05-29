@@ -1,6 +1,6 @@
-import { Injectable } from '@angular/core';
-import { AngularFireAuth } from '@angular/fire/compat/auth';
-import { AngularFirestoreDocument, AngularFirestore } from '@angular/fire/compat/firestore';
+import { Injectable, OnDestroy, inject } from '@angular/core';
+import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings } from '@angular/fire/auth';
+import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference } from '@angular/fire/firestore';
 import { Router } from '@angular/router';
 
 @Injectable({
@@ -8,99 +8,105 @@ import { Router } from '@angular/router';
 })
 export class AuthService {
 
-  private authState: any;
+  private curr_user?: User | null;
 
-  constructor(private afauth: AngularFireAuth, private afs: AngularFirestore, private router: Router) { 
-    this.afauth.authState.subscribe((user) => {
-      this.authState = user;
+  private auth: Auth = inject(Auth);
+  user$ = user(this.auth);
+  userSubscription: any;
+
+  authState$ = authState(this.auth);
+  authStateSubscription: any;
+
+  private firestore: Firestore = inject(Firestore);
+
+  constructor(private router: Router) {
+
+    /* useful for handling user changes if the user is logged in */
+    this.userSubscription = this.user$.subscribe((aUser: User | null) => {
+      //handle user state changes here. Note, that user will be null if there is no currently logged in user.
+      // console.log("Null if not logged in: " + aUser);
+    });
+
+    /* userful for handling auth state chanegs */
+    this.authStateSubscription = this.authState$.subscribe((aUser: User | null) => {
+      //handle auth state changes here. Note, that user will be null if there is no currently logged in user.
+      // console.log("Null if not logged in: " + aUser);
+
+      /* set the curr_user if the returned aUser is not null */
+      this.curr_user = aUser != null ? aUser : null;
     })
-  }
-
-  get currentUserId(): string {
-    return this.authState !== null ? this.authState.uid : '';
   }
 
   /* sign up */
   signUp(usercreds: any) {
 
-    /* DEBUG */
-    console.log("Logging in with the user: " + usercreds);
-    console.log("email: " + usercreds.email + " pwd: " + usercreds.password);
-
-    /* from the Firebase documentation */
-    // return this.afauth.createUserWithEmailAndPassword(usercreds.email, usercreds.password)
-    // .then((userCredential) => {
-
-    //   /* at this point, the user is signed in and firebase has returned the user's new credentials */
-    //   const user = userCredential.user;
-
-    //   /* rest of user signed in code */
-    //   // ...
-    // })
-    // .catch((error) => {
-    //   /* basic error checking */
-    //   const errorCode = error.code;
-    //   const errorMessage = error.message;
-
-    //   /* rest of error code */
-    //   // ...
-    // })
-
-    /* from the tutorial */
-    return this.afauth.createUserWithEmailAndPassword(usercreds.email, usercreds.password)
+    /* from new firebase documenation */
+    createUserWithEmailAndPassword(this.auth, usercreds.email, usercreds.password)
     .then((userCredential) => {
       /* at this point the user is signed in and the new user is returned as userCredential */
       console.log(userCredential);
-      this.authState = userCredential;
 
-      /* udpating with tutorial */
-      this.updateProfile(usercreds.displayName);
+      /* save the user locally */
+      this.curr_user = userCredential.user;
 
-      /* updating using firebase documentation */
-      // this.afauth.updateCurrentUser
-      
+      /* update the profile of the newly created user */
+      updateProfile(this.curr_user, {
+        displayName: usercreds.displayName,
+        photoURL: "https://example.com/jane-q-user/profile.jpg"
+      });
     })
     .catch((error) => {
-      /* one error to check is the case where the user already exists */
+      /* one error to check if the case where the user already exists */
       const errorCode = error.code;
       const errorMessage = error.message;
       console.log("error code: " + errorCode + " with msg: " + errorMessage);
     })
     .then(() => {
       /* now update this user locally */
-      this.setUserData(usercreds.email, usercreds.displayName, usercreds.photoURL);
+      this.setUserData(usercreds.email, usercreds.displayName, "https://example.com/jane-q-user/profile.jpg");
     });
-  }
-
-  async updateProfile(displayName: string) {
-    const profile = {
-      displayName: displayName,
-      photoURL: "https://example.com/jane-q-user/profile.jpg"
-  }
-  return (await this.afauth.currentUser)?.updateProfile(profile);
+    return;
   }
 
   /* set user data to a local users collections used to reference throughout the application */
   setUserData(email: string, displayName: string, photoURL: string) {
-    /* DEBUG */
-    console.log("Getting user from db");
 
-    /* this returns information about the user from firestore */
-    const path = `users/${this.currentUserId}`;
-    const statuspath = `status/${this.currentUserId}`;
-    const userdoc: any = this.afs.doc(path);
-    const status_: any = this.afs.doc(statuspath);
-    
-    userdoc.set( {
-      email: email,
-      displayName: displayName,
-      photoURL: photoURL
+    /* get user and status collections */
+    const usersCollection = collection(this.firestore, 'users');
+    const statusCollection = collection(this.firestore, 'status');
+
+    /* first we add the new user to the database under 'users' */
+    addDoc(usersCollection, <userProfile> { email: email, displayName: displayName, photoURL: photoURL }).then((documentReference: DocumentReference) => {
+      // the documentReference provides access to the newly created document
+    })
+    .catch((error) => {
+      /* one error to check if the case where the user already exists */
+      const errorCode = error.code;
+      const errorMessage = error.message;
+      console.log("error code: " + errorCode + " with msg: " + errorMessage);
     });
-    status_.set = ({
-      status: 'online'
+
+    /* now we add the user to the status collection */
+    addDoc(statusCollection, <userStatus> { online: true }).then((documentReference: DocumentReference) => {
+      // the documentReference provides access to the newly created document
+    })
+    .catch((error) => {
+      /* one error to check if the case where the user already exists */
+      const errorCode = error.code;
+      const errorMessage = error.message;
+      console.log("error code: " + errorCode + " with msg: " + errorMessage);
     });
 
     this.router.navigate(['dashboard']);
   }
 }
 
+export interface userProfile {
+  email: string;
+  displayName: string;
+  photoURL: string;
+}
+
+export interface userStatus {
+  online: boolean;
+}

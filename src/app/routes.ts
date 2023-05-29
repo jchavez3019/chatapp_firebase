@@ -13,6 +13,8 @@ import { AuthguardService } from './services/authguard.service';
 export const appRoutes: Routes = [
     { path: 'login', component: LoginPageComponent },
     { path: 'signup', component: SignupPageComponent },
-    { path: 'dashboard', component: DashboardComponent, canActivate: [AuthguardService]},
+    { path: 'dashboard', component: DashboardComponent},
     { path: '', redirectTo: '/login', pathMatch: 'full' }
 ];
+
+// { path: 'dashboard', component: DashboardComponent, canActivate: [AuthguardService]},

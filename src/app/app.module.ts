@@ -13,9 +13,12 @@ import { environment } from 'src/environments/environment';
 import { appRoutes } from './routes';
 
 /* Firebase */
-import { AngularFireModule } from '@angular/fire/compat';
-import { AngularFirestoreModule } from '@angular/fire/compat/firestore';
-import { AngularFireAuth, AngularFireAuthModule } from '@angular/fire/compat/auth';
+import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
+import { getFirestore, provideFirestore } from '@angular/fire/firestore';
+import { getAuth, provideAuth } from '@angular/fire/auth';
+// import { AngularFireModule } from '@angular/fire/compat';
+// import { AngularFirestoreModule } from '@angular/fire/compat/firestore';
+// import { AngularFireAuth, AngularFireAuthModule } from '@angular/fire/compat/auth';
 
 /* generated components */
 import { LoginPageComponent } from './components/login-page/login-page.component';
@@ -47,10 +50,9 @@ import { AuthguardService } from './services/authguard.service';
     BrowserModule,
     BrowserAnimationsModule,
     RouterModule.forRoot(appRoutes),
-    AngularFireModule.initializeApp(environment.firebase),
-    AngularFireModule,
-    AngularFirestoreModule,
-    AngularFireAuthModule,
+    provideFirebaseApp(() => initializeApp(environment.firebase)),
+    provideFirestore(() => getFirestore()),
+    provideAuth(() => getAuth()),
     MatToolbarModule,
     MatIconModule,
     MatCardModule,
