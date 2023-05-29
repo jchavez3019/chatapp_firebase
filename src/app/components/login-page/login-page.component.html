@@ -1,0 +1,41 @@
+<div class="login-container">
+    <div class="left-container">
+        <div class="content">
+            <img src="../../../assets/login_image.jpg">
+        </div>
+    </div>
+    <div class="right-container">
+        <div class="card-container">
+            <mat-card>
+                <mat-card-title>
+                    Login
+                </mat-card-title>
+                <mat-card-subtitle>
+                    Logging to the application
+                </mat-card-subtitle>
+                <mat-card-content>
+                    <mat-form-field class="input-width">
+                        <input matInput placeholder="Email" [formControl]="emailFormControl" [(ngModel)]="usercreds.email">
+                        <mat-error *ngIf="emailFormControl.hasError('pattern')">
+                            Please enter a valid email address
+                        </mat-error>
+                        <mat-error *ngIf="emailFormControl.hasError('required')">
+                            Email is <strong>required</strong>
+                        </mat-error>
+                    </mat-form-field>
+                    <mat-form-field class="input-width">
+                        <input matInput placeholder="Password" [formControl]="passwordFormControl" [(ngModel)]="usercreds.password">
+                        <mat-error *ngIf="passwordFormControl.hasError('required')">
+                            Password is <strong>required</strong>
+                        </mat-error>
+                    </mat-form-field>
+                    <mat-form-field class="input-width">
+                        <input matInput placeholder="Nickname" [(ngModel)]="usercreds.displayName">
+                    </mat-form-field>
+                </mat-card-content>
+                <button mat-raised-button (click)="loginButton()" color="primary" style="width: 80%">Login</button>
+                <p>Not yet a member? <a (click)="signupButton()">Click here</a> to register</p>
+            </mat-card>
+        </div>
+    </div>
+</div>

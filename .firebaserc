@@ -1,0 +1,14 @@
+{
+  "targets": {
+    "chatapp-5597b": {
+      "hosting": {
+        "chatapp": [
+          "chatapp-5597b"
+        ]
+      }
+    }
+  },
+  "projects": {
+    "default": "chatapp-5597b"
+  }
+}
