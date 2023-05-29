@@ -36,7 +36,6 @@ import { MatInputModule } from '@angular/material/input';
 
 /* services */
 import { AuthService } from './services/auth.service';
-import { AuthguardService } from './services/authguard.service';
 
 
 @NgModule({
@@ -64,8 +63,7 @@ import { AuthguardService } from './services/authguard.service';
     ReactiveFormsModule
   ],
   providers: [
-    AuthService,
-    AuthguardService
+    AuthService
   ],
   bootstrap: [AppComponent]
 })

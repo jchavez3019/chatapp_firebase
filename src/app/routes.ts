@@ -4,7 +4,7 @@ import { Routes } from '@angular/router';
 import { LoginPageComponent } from './components/login-page/login-page.component';
 import { SignupPageComponent } from './components/signup-page/signup-page.component';
 import { DashboardComponent } from './components/dashboard/dashboard.component';
-import { AuthguardService } from './services/authguard.service';
+import { AuthGuard } from './services/auth.guard';
 
 /* 
     The 3rd entry is a wildcard where any url that 
@@ -13,8 +13,6 @@ import { AuthguardService } from './services/authguard.service';
 export const appRoutes: Routes = [
     { path: 'login', component: LoginPageComponent },
     { path: 'signup', component: SignupPageComponent },
-    { path: 'dashboard', component: DashboardComponent},
+    { path: 'dashboard', component: DashboardComponent, canActivate: [AuthGuard]},
     { path: '', redirectTo: '/login', pathMatch: 'full' }
 ];
-
-// { path: 'dashboard', component: DashboardComponent, canActivate: [AuthguardService]},

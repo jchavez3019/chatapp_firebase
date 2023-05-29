@@ -37,6 +37,12 @@ export class AuthService {
     })
   }
 
+  /* check Auth */
+  authUser(): boolean {
+    // return (this.authstate !== null && this.authState !== undefined) ? true : false;
+    return false;
+  }
+
   /* sign up */
   signUp(usercreds: any) {
 
