@@ -5,8 +5,8 @@ import { BehaviorSubject } from 'rxjs';
 
 /* import userProfile interface */
 import { UserProfile } from '@angular/fire/auth';
-import { BADHINTS } from 'dns';
-import { userProfile } from './auth.service';
+// import { BADHINTS } from 'dns';
+// import { userProfile } from './auth.service';
 
 
 @Injectable({
@@ -57,7 +57,6 @@ export class UserService implements OnDestroy {
         console.log("Error in snapshot: " + error);
       }
     });
-    
    }
 
    ngOnDestroy(): void {

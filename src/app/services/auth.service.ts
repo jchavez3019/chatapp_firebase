@@ -1,5 +1,5 @@
 import { Injectable, OnDestroy, inject } from '@angular/core';
-import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut } from '@angular/fire/auth';
+import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, UserProfile } from '@angular/fire/auth';
 import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc } from '@angular/fire/firestore';
 import { Router } from '@angular/router';
 
@@ -178,7 +178,7 @@ export class AuthService implements OnDestroy {
 
     /* Note that in this case, setDoc will create new documents */
     /* first we add the new user to the database under 'users' */
-    await setDoc(userDoc, <userProfile> { email: email, displayName: displayName, photoURL: photoURL })
+    await setDoc(userDoc, <UserProfile> { email: email, displayName: displayName, photoURL: photoURL })
     .catch((error) => {
       /* one error to check if the case where the user already exists */
       const errorCode = error.code;
@@ -218,11 +218,12 @@ export class AuthService implements OnDestroy {
 
 }
 
-export interface userProfile {
-  email: string;
-  displayName: string;
-  photoURL: string;
-}
+/* not used and not to be confused with UserProfile type from firebsae auth */
+// export interface userProfile {
+//   email: string;
+//   displayName: string;
+//   photoURL: string;
+// }
 
 export interface userStatus {
   online: boolean;
