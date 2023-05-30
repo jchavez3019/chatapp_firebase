@@ -1,0 +1,10 @@
+.main-container {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    background: #f7f8fb
+}
+
+.sidebar-container {
+    grid-column: 1;
+}

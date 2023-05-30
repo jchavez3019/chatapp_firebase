@@ -29,12 +29,15 @@
                             Password is <strong>required</strong>
                         </mat-error>
                     </mat-form-field>
-                    <mat-form-field class="input-width">
-                        <input matInput placeholder="Nickname" [(ngModel)]="usercreds.displayName">
-                    </mat-form-field>
                 </mat-card-content>
                 <button mat-raised-button (click)="loginButton()" color="primary" style="width: 80%">Login</button>
                 <p>Not yet a member? <a (click)="signupButton()">Click here</a> to register</p>
+                <!-- <mat-error *ngIf="wrong_password">
+                    Invalid Email/Password
+                </mat-error>
+                <mat-error *ngIf="user_not_found">
+                    User not found. Please check email.
+                </mat-error> -->
             </mat-card>
         </div>
     </div>

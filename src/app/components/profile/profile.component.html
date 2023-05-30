@@ -1,0 +1,42 @@
+<div class="main-container">
+
+    <div class="first-col">
+        <img class="centered-and-cropped" src="{{user.photoURL}}" width="150" height="150" style="border-radius: 50%;">
+        <h3>Nickname: {{user.displayName}}</h3>
+
+        <div class="first-row">
+
+            <!-- form field for updating nickname  -->
+            <mat-form-field *ngIf="nickNameEdit">
+                <input matInput placeholder="Enter new nick name" [(ngModel)]="newNickname" type="text">
+            </mat-form-field>
+            <span matTooltip="Do it">
+                <button *ngIf="nickNameEdit" mat-icon-button (click)="submitNicknameButton()">
+                    <mat-icon color="primary">check</mat-icon>
+                </button>
+            </span>
+            <span matTooltip="Cancel">
+                <button *ngIf="nickNameEdit" mat-icon-button (click)="editNicknameButton()">
+                    <mat-icon color="warn">cancel</mat-icon>
+                </button>
+            </span>
+
+            <!-- Button to change nickname -->
+            <span matTooltip="Change your nickname" *ngIf="!nickNameEdit">
+                <button mat-mini-fab color="primary" (click)="editNicknameButton()">
+                    <mat-icon>mode</mat-icon>
+                </button>
+            </span>
+
+            <!-- Button to change profile pic -->
+            <span matTooltip="Change your profile pic">
+                <button mat-mini-fab color="primary" (click)="fileInput.click()">
+                    <mat-icon>account_box</mat-icon>
+                </button>
+            </span>
+
+            <input #fileInput type="file" (change)="chooseImage($event)" style="display: none;">
+        </div>
+    </div>
+
+</div>

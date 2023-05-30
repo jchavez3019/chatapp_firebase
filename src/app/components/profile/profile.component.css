@@ -1,0 +1,22 @@
+.centered-and-cropped {
+    object-fit: cover;
+}
+
+.main-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.first-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.first-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}

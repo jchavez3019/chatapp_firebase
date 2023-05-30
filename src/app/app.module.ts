@@ -33,9 +33,16 @@ import { DragDropModule } from '@angular/cdk/drag-drop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatInputModule } from '@angular/material/input';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 /* services */
 import { AuthService } from './services/auth.service';
+import { UserService } from './services/user.service';
+import { NavBarComponent } from './components/nav-bar/nav-bar.component';
+import { SidebarComponent } from './components/sidebar/sidebar.component';
+import { ProfileComponent } from './components/profile/profile.component';
 
 
 @NgModule({
@@ -43,7 +50,10 @@ import { AuthService } from './services/auth.service';
     AppComponent,
     LoginPageComponent,
     SignupPageComponent,
-    DashboardComponent
+    DashboardComponent,
+    NavBarComponent,
+    SidebarComponent,
+    ProfileComponent
   ],
   imports: [
     BrowserModule,
@@ -59,11 +69,15 @@ import { AuthService } from './services/auth.service';
     MatButtonModule,
     MatDialogModule,
     MatInputModule,
+    MatExpansionModule,
+    MatTooltipModule,
     FormsModule,
     ReactiveFormsModule
   ],
   providers: [
-    AuthService
+    AuthService,
+    UserService,
+    MatSnackBar
   ],
   bootstrap: [AppComponent]
 })

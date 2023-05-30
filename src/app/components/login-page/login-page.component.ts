@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormControl, Validators } from '@angular/forms';
+import { AuthService } from 'src/app/services/auth.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 /* to check if the email is valid */
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
@@ -11,6 +13,9 @@ const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9
   styleUrls: ['./login-page.component.css']
 })
 export class LoginPageComponent implements OnInit {
+
+  wrong_password = false;
+  user_not_found = false;
 
   /* user information */
   usercreds = {
@@ -28,7 +33,7 @@ export class LoginPageComponent implements OnInit {
     Validators.required
   ])
 
-  constructor(private router: Router) { }
+  constructor(private router: Router, private auth: AuthService, private snackBar: MatSnackBar) { }
 
   ngOnInit(): void {
   }
@@ -44,7 +49,27 @@ export class LoginPageComponent implements OnInit {
     Logs the user into firebase
   */
   loginButton() {
-    
+    this.auth.login(this.usercreds)
+    .catch((error) => {
+      const error_msg = error.message;
+      console.log("Error in loginButton with message: " + error_msg);
+
+      // if (error_msg == "auth/wrong-password") {
+      //   this.wrong_password = true;
+      // }
+      switch(error_msg) {
+        case "auth/wrong-password":
+          this.wrong_password = true;
+          this.user_not_found = false;
+          this.snackBar.open("Invalid Email/Password", "Close", {duration: 3000});
+          break;
+        case "auth/user-not-found":
+          this.wrong_password = false;
+          this.user_not_found = true;
+          this.snackBar.open("User not found", "Close", {duration: 3000});
+          break;
+      }
+    });
   }
 
 }
