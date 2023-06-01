@@ -92,37 +92,12 @@ export class UserService implements OnDestroy {
 
   updateProfilePic(file: any) {
 
-    // /* upload to the file to the path */
-    // const uploadTask = this.storage.upload('profilepics/' + this.auth.currentUser?.uid, file);
-
-    // uploadTask.then((data) => {
-    //   /* the data has been uploaded */
-
-    //   /* the URL holding the image */
-    //   downloadURL = data.downloadURL;
-
-    //   /* update the user's photo URL */
-    //   this.afs.doc.('users/' + this.auth.currentUser?.uid).update({
-    //     photoURL: downloadURL
-    //   })
-    //   .then(() => {
-
-    //     /* once the user's doc has been updated, update their profile as well */
-    //     this.auth.currentUser.updateProfile({
-    //       displayName: this.auth.currentUser?.displayName;
-    //       photoURL: downloadURL
-
-    //     })
-
-    //   })
-
-    // });
-
-    /* with firebase documentation */
+    /* gather necessary information */
     const userId = this.auth.currentUser?.uid;
     const fileStorageReference: StorageReference  = ref(this.storage, 'profilepics/'+userId);
     const uploadTask = uploadBytesResumable(fileStorageReference, file);
 
+    /* check that the authenticated user is not null which realistically will never happen */
     if (this.auth.currentUser != null) {
       const currUser: User = this.auth.currentUser;
 
