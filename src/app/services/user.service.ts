@@ -1,12 +1,11 @@
 import { Injectable, inject, OnDestroy } from '@angular/core';
 import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut } from '@angular/fire/auth';
-import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, updateDoc, onSnapshot, DocumentSnapshot } from '@angular/fire/firestore';
-import { Storage, UploadTask } from '@angular/fire/storage';
+import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, updateDoc, onSnapshot, DocumentSnapshot, snapToData } from '@angular/fire/firestore';
+import { Storage, UploadTask, uploadBytesResumable, ref, StorageReference, TaskEvent, uploadBytes, getDownloadURL } from '@angular/fire/storage';
 import { BehaviorSubject } from 'rxjs';
 
 /* import userProfile interface */
 import { UserProfile } from '@angular/fire/auth';
-// import { BADHINTS } from 'dns';
 // import { userProfile } from './auth.service';
 
 
@@ -91,36 +90,94 @@ export class UserService implements OnDestroy {
 
   }
 
-  updateProfilePic(file) {
+  updateProfilePic(file: any) {
 
-    /* upload to the file to the path */
-    const uploadTask = this.storage.upload('profilepics/' + this.auth.currentUser?.uid, file);
+    // /* upload to the file to the path */
+    // const uploadTask = this.storage.upload('profilepics/' + this.auth.currentUser?.uid, file);
 
-    uploadTask.then((data) => {
-      /* the data has been uploaded */
+    // uploadTask.then((data) => {
+    //   /* the data has been uploaded */
 
-      /* the URL holding the image */
-      downloadURL = data.downloadURL;
+    //   /* the URL holding the image */
+    //   downloadURL = data.downloadURL;
 
-      /* update the user's photo URL */
-      this.afs.doc.('users/' + this.auth.currentUser?.uid).update({
-        photoURL: downloadURL
-      })
-      .then(() => {
+    //   /* update the user's photo URL */
+    //   this.afs.doc.('users/' + this.auth.currentUser?.uid).update({
+    //     photoURL: downloadURL
+    //   })
+    //   .then(() => {
 
-        /* once it has been updated */
-        this.auth.currentUser.updateProfile({
-          displayName: this.auth.currentUser?.displayName;
-          photoURL: downloadURL
+    //     /* once the user's doc has been updated, update their profile as well */
+    //     this.auth.currentUser.updateProfile({
+    //       displayName: this.auth.currentUser?.displayName;
+    //       photoURL: downloadURL
 
-        })
+    //     })
 
-      })
+    //   })
 
-    });
+    // });
+
+    /* with firebase documentation */
+    const userId = this.auth.currentUser?.uid;
+    const fileStorageReference: StorageReference  = ref(this.storage, 'profilepics/'+userId);
+    const uploadTask = uploadBytesResumable(fileStorageReference, file);
+
+    if (this.auth.currentUser != null) {
+      const currUser: User = this.auth.currentUser;
+
+      uploadTask.on('state_changed',
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        console.log("Upload is " + progress + "% done");
+        switch (snapshot.state) {
+          case 'paused':
+            break;
+          case 'running':
+            break;
+        }
+      },
+      (error) => {
+        // Handling unsuccessful uploads
+      },
+      () => {
+        // Handle successful uploads on complete
+        // For instance, get the download URL: https://firebasestorage.googleapis.com/...
+        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+          console.log('File available at', downloadURL);
+
+          /* update the usr's doc with the new photoURL */
+          const userDoc = doc(this.firestore, `users/${userId}`);
+
+          updateDoc(userDoc, { photoURL: downloadURL })
+          .then(() => {
+            /* the user's doc has been updated, now update the user's auth profile */
+            updateProfile(currUser, {photoURL: downloadURL})
+            .catch((error) => {
+              /* error updating auth profile */
+              const errorCode = error.code;
+              const errorMessage = error.message;
+              console.log("Error in uploading doc\nerror code: " + errorCode + " with msg: " + errorMessage);
+            })
+
+          })
+          .catch((error) => {
+            /* error updating doc */
+            const errorCode = error.code;
+            const errorMessage = error.message;
+            console.log("Error in uploading doc\nerror code: " + errorCode + " with msg: " + errorMessage);
+          });
+
+          });
+
+        }
+      )
+    }
+
+    
 
 
-    const uploadTask = UploadTask
+
   }
 
 
