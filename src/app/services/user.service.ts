@@ -1,6 +1,7 @@
 import { Injectable, inject, OnDestroy } from '@angular/core';
 import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut } from '@angular/fire/auth';
 import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, updateDoc, onSnapshot, DocumentSnapshot } from '@angular/fire/firestore';
+import { Storage, UploadTask } from '@angular/fire/storage';
 import { BehaviorSubject } from 'rxjs';
 
 /* import userProfile interface */
@@ -17,6 +18,8 @@ export class UserService implements OnDestroy {
   private auth: Auth = inject(Auth);
   private firestore: Firestore = inject(Firestore);
   private unsub: any;
+
+  private storage: Storage = inject(Storage);
 
   authState$ = authState(this.auth);
   authStateSubscription: any;
@@ -86,6 +89,38 @@ export class UserService implements OnDestroy {
       throw Error(result);
     }
 
+  }
+
+  updateProfilePic(file) {
+
+    /* upload to the file to the path */
+    const uploadTask = this.storage.upload('profilepics/' + this.auth.currentUser?.uid, file);
+
+    uploadTask.then((data) => {
+      /* the data has been uploaded */
+
+      /* the URL holding the image */
+      downloadURL = data.downloadURL;
+
+      /* update the user's photo URL */
+      this.afs.doc.('users/' + this.auth.currentUser?.uid).update({
+        photoURL: downloadURL
+      })
+      .then(() => {
+
+        /* once it has been updated */
+        this.auth.currentUser.updateProfile({
+          displayName: this.auth.currentUser?.displayName;
+          photoURL: downloadURL
+
+        })
+
+      })
+
+    });
+
+
+    const uploadTask = UploadTask
   }
 
 

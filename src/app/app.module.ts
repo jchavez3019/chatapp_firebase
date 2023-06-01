@@ -43,6 +43,7 @@ import { UserService } from './services/user.service';
 import { NavBarComponent } from './components/nav-bar/nav-bar.component';
 import { SidebarComponent } from './components/sidebar/sidebar.component';
 import { ProfileComponent } from './components/profile/profile.component';
+import { provideStorage, getStorage } from '@angular/fire/storage';
 
 
 @NgModule({
@@ -62,6 +63,7 @@ import { ProfileComponent } from './components/profile/profile.component';
     provideFirebaseApp(() => initializeApp(environment.firebase)),
     provideFirestore(() => getFirestore()),
     provideAuth(() => getAuth()),
+    provideStorage(() => getStorage()),
     MatToolbarModule,
     MatIconModule,
     MatCardModule,
