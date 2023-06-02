@@ -3,6 +3,9 @@ import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCreden
 import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc } from '@angular/fire/firestore';
 import { Router } from '@angular/router';
 
+/* firebase data types */
+import { UserData, UserStatus, userDataConverter, userStatusConverter } from '../firestore.datatypes';
+
 @Injectable({
   providedIn: 'root'
 })
@@ -173,23 +176,36 @@ export class AuthService implements OnDestroy {
     /* get user auth uid */
     const userId = this.auth.currentUser?.uid;
 
-    /* create custom document references */
-    const userDoc = doc(this.firestore, `users/${userId}`);
+    /* will never be undefined but still checking */
+    if (userId != undefined) {
 
-    /* Note that in this case, setDoc will create new documents */
-    /* first we add the new user to the database under 'users' */
-    await setDoc(userDoc, <UserProfile> { email: email, displayName: displayName, photoURL: photoURL })
-    .catch((error) => {
-      /* one error to check if the case where the user already exists */
-      const errorCode = error.code;
-      const errorMessage = error.message;
-      console.log("error code: " + errorCode + " with msg: " + errorMessage);
-      result = errorCode;
-    });
+      /* create custom document references */
+      const userDoc = doc(this.firestore, `users/${userId}`).withConverter(userDataConverter);
 
-    if (result != null) {
-      throw Error(result);
+      const newUserData: UserData = {
+        email: email, 
+        displayName: displayName,
+        photoURL: photoURL,
+        uid: userId
+      };
+
+      /* Note that in this case, setDoc will create new documents */
+      /* first we add the new user to the database under 'users' */
+      await setDoc(userDoc, newUserData)
+      .catch((error) => {
+        /* one error to check if the case where the user already exists */
+        const errorCode = error.code;
+        const errorMessage = error.message;
+        console.log("error code: " + errorCode + " with msg: " + errorMessage);
+        result = errorCode;
+      });
+
+      if (result != null) {
+        throw Error(result);
+      }
     }
+
+    
   }
 
   /* Updates the status of a user. If the user's status does not exist, it will be created */
@@ -198,10 +214,14 @@ export class AuthService implements OnDestroy {
     const userId = this.auth.currentUser?.uid;
 
     /* create custom document reference */
-    const statusDoc = doc(this.firestore, `status/${userId}`);
+    const statusDoc = doc(this.firestore, `status/${userId}`).withConverter(userStatusConverter);
+
+    const newUserStatus: UserStatus = {
+      online: true
+    }
 
     /* now upodate the status of the user */
-    await setDoc(statusDoc, <userStatus> { online: true })
+    await setDoc(statusDoc, newUserStatus)
     .catch((error) => {
       /* one error to check if the case where the user already exists */
       const errorCode = error.code;
@@ -216,15 +236,4 @@ export class AuthService implements OnDestroy {
   }
 
 
-}
-
-/* not used and not to be confused with UserProfile type from firebsae auth */
-// export interface userProfile {
-//   email: string;
-//   displayName: string;
-//   photoURL: string;
-// }
-
-export interface userStatus {
-  online: boolean;
 }

@@ -1,12 +1,11 @@
 import { Injectable, inject, OnDestroy } from '@angular/core';
 import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, Unsubscribe } from '@angular/fire/auth';
-import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, updateDoc, onSnapshot, DocumentSnapshot, snapToData, QuerySnapshot, FirestoreError } from '@angular/fire/firestore';
+import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, updateDoc, onSnapshot, DocumentSnapshot, snapToData, QuerySnapshot, FirestoreError, DocumentData } from '@angular/fire/firestore';
 import { Storage, UploadTask, uploadBytesResumable, ref, StorageReference, TaskEvent, uploadBytes, getDownloadURL } from '@angular/fire/storage';
 import { BehaviorSubject } from 'rxjs';
 
-/* import userProfile interface */
-import { UserProfile } from '@angular/fire/auth';
-// import { userProfile } from './auth.service';
+/* firebase data interfaces */
+import { UserData, UserStatus, userDataConverter, userStatusConverter } from '../firestore.datatypes';
 
 
 @Injectable({
@@ -24,10 +23,12 @@ export class UserService implements OnDestroy {
   authStateSubscription: any;
 
   /* current user whose information will be displayed in the dashboard */
-  currentUser: BehaviorSubject<UserProfile | undefined> = new BehaviorSubject<UserProfile | undefined>({
+  /*NOTE: look into FirestoreConverter */
+  currentUser: BehaviorSubject<UserData | undefined> = new BehaviorSubject<UserData | undefined>({
     email: "",
     displayName: "",
-    photoURL: ""
+    photoURL: "",
+    uid: ""
   });
 
 
@@ -41,16 +42,16 @@ export class UserService implements OnDestroy {
     const userId = this.auth.currentUser?.uid;
 
     /* create custom document references */
-    const userDoc = doc(this.firestore, `users/${userId}`);
+    const userDoc = doc(this.firestore, `users/${userId}`).withConverter(userDataConverter);
 
     /* using snapshot to get changes to the user document */
     this.unsub = onSnapshot(userDoc, {
-      next: (doc_snapshot: DocumentSnapshot<UserProfile>) => {
+      next: (doc_snapshot: DocumentSnapshot<UserData>) => {
         // console.log(doc_snapshot);
 
         /* if the snapshot is defined, emit the current user's profile data */
         if (doc_snapshot != undefined) {
-          const updatedUserProfile: UserProfile | undefined = doc_snapshot.data();
+          const updatedUserProfile: UserData | undefined = doc_snapshot.data();
           this.currentUser.next(updatedUserProfile);  
         }
       },
@@ -151,7 +152,17 @@ export class UserService implements OnDestroy {
   }
 
   /* get current user */
-  
+  getCurrentUser() : Promise<DocumentSnapshot<UserData>> {
+    /* get user auth uid */
+    const userId = this.auth.currentUser?.uid;
+
+    /* create custom document references */
+    const userDoc = doc(this.firestore, `users/${userId}`).withConverter(userDataConverter);
+
+    /* return promise */
+    return getDoc(userDoc);
+  }
+
 
   /* get all users */
   getAllUsers(observererFunction: any): Unsubscribe {

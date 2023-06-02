@@ -1,7 +1,10 @@
 import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { UserService } from '../../services/user.service';
-import { Firestore, FirestoreError, QuerySnapshot } from '@angular/fire/firestore';
+import { Firestore, FirestoreError, QuerySnapshot, DocumentSnapshot } from '@angular/fire/firestore';
 import { Unsubscribe, User, UserProfile } from '@angular/fire/auth';
+
+/* firestore data types */
+import { UserData } from 'src/app/firestore.datatypes';
 
 @Component({
   selector: 'app-add-friends',
@@ -10,9 +13,8 @@ import { Unsubscribe, User, UserProfile } from '@angular/fire/auth';
 })
 export class AddFriendsComponent implements OnInit, OnDestroy {
 
-  users: any;
+  users: Array<UserData> | undefined;
   private unsubUsers: Unsubscribe | undefined;
-  private currUser: User | undefined;
 
 
   constructor(private userService: UserService) { }
@@ -20,34 +22,50 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
 
     /* get the current user */
+    this.userService.getCurrentUser()
+    .then((snapshot: DocumentSnapshot<UserData>) => {
 
+      /* get the current user's id */
+      const currUserUID = snapshot.data()?.uid;
 
-    /* create observable function that returns all other users */
-    let observerFunction = {
-      next: (snapshot: QuerySnapshot<User>) => {
-        let currentUserData = [];
+      /* create observable function that returns all other users */
+      let observerFunction = {
+        next: (snapshot: QuerySnapshot<UserData>) => {
+          let currentUserData = [];
 
-        for (let i = 0; i < snapshot.size; i++) {
-          /* skip the current user */
-          let currCollectionUser = snapshot.docs[i].data();
+          for (let i = 0; i < snapshot.size; i++) {
+            /* skip the current user */
+            let currCollectionUser = snapshot.docs[i].data();
 
-          /* skip if the user matches the current user */
-          // if (this.auth.currentUser == currCollectionUser)
-          //   continue;
+            /* skip if the user matches the current user */
+            if (currUserUID == currCollectionUser.uid)
+              continue;
 
-          /* append the users */
-          currentUserData.push(snapshot.docs[i].data());
+            /* append the users */
+            currentUserData.push(snapshot.docs[i].data());
+          }
+
+          this.users = currentUserData;
+
+          /* DEBUG */
+          console.log("currAuthUser: " + typeof(currUserUID));
+          console.log(currUserUID);
+          console.log("listAllUsers: " + typeof(this.users[6]));
+          console.log(this.users[6]);
+        },
+        error: (error: FirestoreError) => {
+          console.log(error);
         }
+      };
 
-        this.users = currentUserData;
-      },
-      error: (error: FirestoreError) => {
-        console.log(error);
-      }
-    };
+      /* call snapshot that updates all other users */
+      this.unsubUsers = this.userService.getAllUsers(observerFunction);
 
-    /* call snapshot that updates all other users */
-    this.unsubUsers = this.userService.getAllUsers(observerFunction);
+    });
+
+    
+
+    
   }
 
   ngOnDestroy(): void {
