@@ -1,6 +1,6 @@
 import { Injectable, inject, OnDestroy } from '@angular/core';
-import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut } from '@angular/fire/auth';
-import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, updateDoc, onSnapshot, DocumentSnapshot, snapToData } from '@angular/fire/firestore';
+import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, Unsubscribe } from '@angular/fire/auth';
+import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, updateDoc, onSnapshot, DocumentSnapshot, snapToData, QuerySnapshot, FirestoreError } from '@angular/fire/firestore';
 import { Storage, UploadTask, uploadBytesResumable, ref, StorageReference, TaskEvent, uploadBytes, getDownloadURL } from '@angular/fire/storage';
 import { BehaviorSubject } from 'rxjs';
 
@@ -30,7 +30,6 @@ export class UserService implements OnDestroy {
     photoURL: ""
   });
 
-  // private firestore: Firestore = inject(Firestore);
 
   constructor() {
     /* userful for handling auth state chanegs */
@@ -90,6 +89,7 @@ export class UserService implements OnDestroy {
 
   }
 
+  /* update the profile picture of the current user */
   updateProfilePic(file: any) {
 
     /* gather necessary information */
@@ -148,11 +148,18 @@ export class UserService implements OnDestroy {
         }
       )
     }
+  }
 
-    
+  /* get current user */
+  
 
+  /* get all users */
+  getAllUsers(observererFunction: any): Unsubscribe {
+    /* get a reference to the collection of users */
+    const userCollection = collection(this.firestore, 'users');
 
-
+    /* create snapshot using the specificed observer functions and return unsubscribe */
+    return onSnapshot(userCollection, observererFunction);
   }
 
 

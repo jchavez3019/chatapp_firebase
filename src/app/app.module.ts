@@ -36,6 +36,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatListModule } from '@angular/material/list';
 
 /* services */
 import { AuthService } from './services/auth.service';
@@ -44,6 +45,7 @@ import { NavBarComponent } from './components/nav-bar/nav-bar.component';
 import { SidebarComponent } from './components/sidebar/sidebar.component';
 import { ProfileComponent } from './components/profile/profile.component';
 import { provideStorage, getStorage } from '@angular/fire/storage';
+import { AddFriendsComponent } from './components/add-friends/add-friends.component';
 
 
 @NgModule({
@@ -54,7 +56,8 @@ import { provideStorage, getStorage } from '@angular/fire/storage';
     DashboardComponent,
     NavBarComponent,
     SidebarComponent,
-    ProfileComponent
+    ProfileComponent,
+    AddFriendsComponent
   ],
   imports: [
     BrowserModule,
@@ -73,6 +76,7 @@ import { provideStorage, getStorage } from '@angular/fire/storage';
     MatInputModule,
     MatExpansionModule,
     MatTooltipModule,
+    MatListModule,
     FormsModule,
     ReactiveFormsModule
   ],

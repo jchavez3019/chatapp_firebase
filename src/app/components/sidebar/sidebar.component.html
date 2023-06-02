@@ -1,4 +1,5 @@
 <mat-accordion multi="true">
+    <!-- profile panel  -->
     <mat-expansion-panel hideToggle="true" expanded="true">
         <mat-expansion-panel-header>
             My Profile
@@ -7,4 +8,13 @@
         <!-- display user profile  -->
         <app-profile></app-profile>
     </mat-expansion-panel>
+
+    <!-- adding friends  -->
+    <mat-expansion-panel hideToggle="true" expanded="true">
+        <mat-expansion-panel-header>
+            Add Friends
+        </mat-expansion-panel-header>
+        <app-add-friends></app-add-friends>
+    </mat-expansion-panel>
+
 </mat-accordion>
