@@ -48,3 +48,24 @@ export const userStatusConverter: FirestoreDataConverter<UserStatus> = {
         return docSnap.data() as UserStatus;
     }
 }
+
+/* requests: RequestData */
+
+/* interface */
+export interface RequestData {
+    sender: string;
+    receiver: string;
+}
+
+/* convert */
+export const requestDataConverter: FirestoreDataConverter<RequestData> = {
+    toFirestore(requestData: RequestData): DocumentData {
+        console.log("requrestData went through to-converter");
+        return { ...requestData };
+    },
+
+    fromFirestore(docSnap: QueryDocumentSnapshot): RequestData {
+        console.log("requestData went through from-converter");
+        return docSnap.data() as RequestData;
+    }
+}

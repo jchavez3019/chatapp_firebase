@@ -2,9 +2,11 @@ import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { UserService } from '../../services/user.service';
 import { Firestore, FirestoreError, QuerySnapshot, DocumentSnapshot } from '@angular/fire/firestore';
 import { Unsubscribe, User, UserProfile } from '@angular/fire/auth';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 /* firestore data types */
 import { UserData } from 'src/app/firestore.datatypes';
+import { RequestsService } from 'src/app/services/requests.service';
 
 @Component({
   selector: 'app-add-friends',
@@ -17,7 +19,7 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
   private unsubUsers: Unsubscribe | undefined;
 
 
-  constructor(private userService: UserService) { }
+  constructor(private userService: UserService, private requestsService: RequestsService ,private snackBar: MatSnackBar) { }
 
   ngOnInit(): void {
 
@@ -75,8 +77,11 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
     }
   }
 
-  addFriend(user: any) {
-    return;
+  addFriend(user: UserData) {
+    this.requestsService.addRequest(user.email)
+    .then(() => {
+      this.snackBar.open('Request Sent', 'Okay', { duration: 3000 });
+    });
   }
 
 }
