@@ -163,6 +163,11 @@ export class UserService implements OnDestroy {
     return getDoc(userDoc);
   }
 
+  /* get users by email */
+  getUsersByEmail() {
+    
+  }
+
 
   /* get all users */
   getAllUsers(observererFunction: any): Unsubscribe {
