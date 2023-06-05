@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, Unsubscribe } from '@angular/fire/auth';
-import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, and, setDoc, doc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, query, QuerySnapshot, FirestoreError, DocumentData, where, QueryFilterConstraint, deleteDoc } from '@angular/fire/firestore';
-import { RequestData, requestDataConverter } from '../firestore.datatypes';
+import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, and, or, setDoc, doc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, query, QuerySnapshot, FirestoreError, DocumentData, where, QueryFilterConstraint, deleteDoc } from '@angular/fire/firestore';
+import { RequestData, UserData, requestDataConverter, userDataConverter } from '../firestore.datatypes';
+import { req } from '../components/requests/requests.component';
 
 @Injectable({
   providedIn: 'root'
@@ -13,6 +14,7 @@ export class RequestsService {
 
   private requestCollectionRef: CollectionReference = collection(this.firestore, "requests");
   private friendsCollectionRef = collection(this.firestore, "friends");
+  private usersCollectionRef: CollectionReference = collection(this.firestore, "users");
 
   constructor() { }
 
@@ -35,16 +37,60 @@ export class RequestsService {
   }
 
   /* get the current user's friend requests */
-  getMyRequests(observerFunction: any) {
+  getMyRequests(requestedUsers: req) {
 
     /* current user's email */
     const currUserEmail: string | null | undefined = this.auth.currentUser?.email;
 
     /* should never be null or undefined */
     if ((currUserEmail != null) && (currUserEmail != undefined)) {
+
+      /* query for all the other users that have sent a friend request to the current user */
       const requestsQuery = query(this.requestCollectionRef.withConverter(requestDataConverter), where("receiver", "==", currUserEmail));
 
-      return onSnapshot(requestsQuery, observerFunction);
+      /* create a snapshot for query above */
+      const snapshotUnsub =  onSnapshot(requestsQuery, {
+        next: (snapshot: QuerySnapshot<RequestData>) => {
+
+          /* check the case where the user has no friend requests */
+          if (snapshot.empty) {
+            requestedUsers.requests = [];
+            return;
+          }
+
+          /* create a query filter of UserData for all the other users */
+          let filterList: QueryFilterConstraint[] = [];
+          
+          for (let i = 0; i < snapshot.size; i++) {
+            const currSnapshotData = snapshot.docs[i].data();
+            filterList.push(where("email","==",currSnapshotData.sender));
+          }
+
+          const queryFilter = or(...filterList);
+          const usersQuery = query(this.usersCollectionRef.withConverter(userDataConverter), queryFilter);
+
+          getDocs<UserData>(usersQuery)
+          .then((doc_snapshot: QuerySnapshot<UserData>) => {
+
+            let updatedUsers: UserData[] = [];
+
+            for (let i = 0; i < doc_snapshot.size; i++) {
+              const currUserData: UserData = doc_snapshot.docs[i].data();
+              updatedUsers.push(currUserData);
+            }
+
+            /* update the caller's list of users */
+            requestedUsers.requests = updatedUsers;
+
+          })
+
+        },
+        error: (error: FirestoreError) => {
+          console.log("Error getting friend requests for the current user");
+        }
+      });
+
+      return snapshotUnsub;
     }
 
     return undefined;
@@ -97,7 +143,7 @@ export class RequestsService {
             const docId = snapshot.docs[0].id;
 
             /* get the reference to the subcollection */
-            const subCollectionRef = collection(this.firestore, `friends/${docId}`);
+            const subCollectionRef = collection(this.firestore, `friends/${docId}/myFriends`);
 
             /* append the other user as a new friend */
             addDoc(subCollectionRef, { email: otherUserEmail });
@@ -134,7 +180,7 @@ export class RequestsService {
             const docId = snapshot.docs[0].id;
 
             /* get the reference to the subcollection */
-            const subCollectionRef = collection(this.firestore, `friends/${docId}`);
+            const subCollectionRef = collection(this.firestore, `friends/${docId}/myFriends`);
 
             /* append the other user as a new friend */
             addDoc(subCollectionRef, { email: currUserEmail });
@@ -142,11 +188,12 @@ export class RequestsService {
         });
 
         /* remove the friend request now that is has been accepted */
-        const reqQueryFilter = and(where("receiver", "==", currUserEmail), where("sender", "==", otherUserEmail));
-        const reqQuery = query(this.requestCollectionRef, reqQueryFilter);
+        const currFilterList: QueryFilterConstraint[] = [where("receiver", "==", currUserEmail), where("sender", "==", otherUserEmail)];
+        const currReqQueryFilter = and(...currFilterList);
+        const currReqQuery = query(this.requestCollectionRef, currReqQueryFilter);
 
         /* find the document that satisfies the query */
-        const prom3 = getDocs(reqQuery)
+        const prom3 = getDocs(currReqQuery)
         .then((snapshot: QuerySnapshot<DocumentData>) => {
 
           /* check potential edgecases */
@@ -161,14 +208,44 @@ export class RequestsService {
 
             /* get the document reference */
             const docId = snapshot.docs[0].id;
-            const docRef = doc(this.firestore, `request/${docId}`);
+            const docRef = doc(this.firestore, `requests/${docId}`);
+
+            console.log("Removing request with id: " + docId);
 
             /* delete the request */
-            deleteDoc(docRef);
+            deleteDoc(docRef)
+            .catch((error) => {
+              console.log("Error delting doc");
+            });
           }
         });
 
-        await Promise.all([prom1, prom2, prom3]);
+        /* now need to check edge case where the other user has also sent a friend request */
+        const otherFilterList: QueryFilterConstraint[] = [where("receiver", "==", otherUserEmail), where("sender", "==", currUserEmail)];
+        const otherReqQueryFilter = and(...otherFilterList);
+        const otherReqQuery = query(this.requestCollectionRef, otherReqQueryFilter);
+
+        const prom4 = getDocs(otherReqQuery)
+        .then((snapshot: QuerySnapshot<DocumentData>) =>  {
+          /* if request dne, return */
+          if (snapshot.empty)
+            return;
+
+          /* get the document reference */
+          const docId = snapshot.docs[0].id;
+          const docRef = doc(this.firestore, `requests/${docId}`);
+
+          console.log("Removing request with id: " + docId);
+
+          /* delete the request */
+          deleteDoc(docRef)
+          .catch((error) => {
+            console.log("Error delting doc");
+          });
+          
+        });
+
+        await Promise.all([prom1, prom2, prom3, prom4]);
 
         resolve("Success");
       })();
@@ -200,7 +277,7 @@ export class RequestsService {
 
         /* get the document reference */
         const docId = snapshot.docs[0].id;
-        const docRef = doc(this.firestore, `request/${docId}`);
+        const docRef = doc(this.firestore, `requests/${docId}`);
 
         /* delete the request */
         deleteDoc(docRef);

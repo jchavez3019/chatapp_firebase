@@ -19,12 +19,12 @@ export interface UserData {
 /* converter */
 export const userDataConverter: FirestoreDataConverter<UserData> = {
     toFirestore(userData: UserData): DocumentData {
-      console.log("userData Went through to-converter");
+    //   console.log("userData Went through to-converter");
       return { ...userData};
     },
   
     fromFirestore(docSnap: QueryDocumentSnapshot): UserData {
-      console.log("userData Went through from-converter")
+    //   console.log("userData Went through from-converter")
       return docSnap.data() as UserData;
     },
   };
@@ -39,12 +39,12 @@ export interface UserStatus {
 /* convert */
 export const userStatusConverter: FirestoreDataConverter<UserStatus> = {
     toFirestore(userStatus: UserStatus): DocumentData {
-        console.log("userStatus went through to-converter");
+        // console.log("userStatus went through to-converter");
         return { ...userStatus };
     },
 
     fromFirestore(docSnap: QueryDocumentSnapshot): UserStatus {
-        console.log("userStatus went through from-converter");
+        // console.log("userStatus went through from-converter");
         return docSnap.data() as UserStatus;
     }
 }
@@ -60,12 +60,12 @@ export interface RequestData {
 /* convert */
 export const requestDataConverter: FirestoreDataConverter<RequestData> = {
     toFirestore(requestData: RequestData): DocumentData {
-        console.log("requrestData went through to-converter");
+        // console.log("requrestData went through to-converter");
         return { ...requestData };
     },
 
     fromFirestore(docSnap: QueryDocumentSnapshot): RequestData {
-        console.log("requestData went through from-converter");
+        // console.log("requestData went through from-converter");
         return docSnap.data() as RequestData;
     }
 }

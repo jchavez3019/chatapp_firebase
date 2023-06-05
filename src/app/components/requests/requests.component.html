@@ -1,5 +1,5 @@
 <mat-list>
-    <mat-list-item *ngFor="let request of requests; let i = index">
+    <mat-list-item *ngFor="let request of requests.requests; let i = index">
         <img matListAvatar src="{{request.photoURL}}">
         <h3 matLine> {{request.displayName }}</h3>
         <button mat-icon-button (click)="acceptRequest(request)">

@@ -15,59 +15,21 @@ import { RequestsService } from 'src/app/services/requests.service';
 })
 export class AddFriendsComponent implements OnInit, OnDestroy {
 
-  users: Array<UserData> | undefined;
-  private unsubUsers: Unsubscribe | undefined;
+  users: add_component_users = { users: [], initialized: false };
+  private unsubUsers: Unsubscribe | undefined = undefined;
 
 
   constructor(private userService: UserService, private requestsService: RequestsService ,private snackBar: MatSnackBar) { }
 
   ngOnInit(): void {
 
-    /* get the current user */
-    this.userService.getCurrentUser()
-    .then((snapshot: DocumentSnapshot<UserData>) => {
-
-      /* get the current user's id */
-      const currUserUID = snapshot.data()?.uid;
-
-      /* create observable function that returns all other users */
-      let observerFunction = {
-        next: (snapshot: QuerySnapshot<UserData>) => {
-          let currentUserData = [];
-
-          for (let i = 0; i < snapshot.size; i++) {
-            /* skip the current user */
-            let currCollectionUser = snapshot.docs[i].data();
-
-            /* skip if the user matches the current user */
-            if (currUserUID == currCollectionUser.uid)
-              continue;
-
-            /* append the users */
-            currentUserData.push(snapshot.docs[i].data());
-          }
-
-          this.users = currentUserData;
-
-          /* DEBUG */
-          console.log("currAuthUser: " + typeof(currUserUID));
-          console.log(currUserUID);
-          console.log("listAllUsers: " + typeof(this.users[6]));
-          console.log(this.users[6]);
-        },
-        error: (error: FirestoreError) => {
-          console.log(error);
-        }
-      };
-
-      /* call snapshot that updates all other users */
-      this.unsubUsers = this.userService.getAllUsers(observerFunction);
-
+    /* call snapshot that updates all other users */
+    this.userService.getRelativeAllUsers(this.users)
+    .then((ret_unsub) => {
+      if (ret_unsub != undefined)
+        this.unsubUsers = ret_unsub;
     });
 
-    
-
-    
   }
 
   ngOnDestroy(): void {
@@ -84,4 +46,10 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
     });
   }
 
+}
+
+/* allows pass by reference */
+export interface add_component_users {
+  users: UserData[];
+  initialized: boolean;
 }
