@@ -47,6 +47,7 @@ import { ProfileComponent } from './components/profile/profile.component';
 import { provideStorage, getStorage } from '@angular/fire/storage';
 import { AddFriendsComponent } from './components/add-friends/add-friends.component';
 import { RequestsComponent } from './components/requests/requests.component';
+import { MyFriendsComponent } from './components/my-friends/my-friends.component';
 
 
 @NgModule({
@@ -59,7 +60,8 @@ import { RequestsComponent } from './components/requests/requests.component';
     SidebarComponent,
     ProfileComponent,
     AddFriendsComponent,
-    RequestsComponent
+    RequestsComponent,
+    MyFriendsComponent
   ],
   imports: [
     BrowserModule,

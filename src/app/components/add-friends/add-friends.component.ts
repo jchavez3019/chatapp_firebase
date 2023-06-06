@@ -42,8 +42,24 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
   addFriend(user: UserData) {
     this.requestsService.addRequest(user.email)
     .then(() => {
+
+      /* now remove the user from the local users list */
+      for (let i = 0; i < this.users.users.length; i++) {
+        const currUserEmail = this.users.users[i].email;
+
+        if (user.email === currUserEmail) {
+          this.users.users.splice(i, 1);
+          break;
+        }
+      }
+
+      /* display a message alerting that a request was successful */
       this.snackBar.open('Request Sent', 'Okay', { duration: 3000 });
     });
+  }
+
+  instantSearch(event: any) {
+    
   }
 
 }

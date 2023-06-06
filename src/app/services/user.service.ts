@@ -1,11 +1,11 @@
 import { Injectable, inject, OnDestroy, Query } from '@angular/core';
 import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, Unsubscribe } from '@angular/fire/auth';
-import { Firestore, collection, query, where, and, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, snapToData, QuerySnapshot, QueryFilterConstraint, FirestoreError, DocumentData } from '@angular/fire/firestore';
+import { Firestore, collection, query, where, and, or, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, snapToData, QuerySnapshot, QueryFilterConstraint, FirestoreError, DocumentData } from '@angular/fire/firestore';
 import { Storage, UploadTask, uploadBytesResumable, ref, StorageReference, TaskEvent, uploadBytes, getDownloadURL } from '@angular/fire/storage';
 import { BehaviorSubject } from 'rxjs';
 
 /* firebase data interfaces */
-import { UserData, UserStatus, userDataConverter, userStatusConverter } from '../firestore.datatypes';
+import { UserData, UserStatus, requestDataConverter, userDataConverter, userStatusConverter } from '../firestore.datatypes';
 import { add_component_users } from '../components/add-friends/add-friends.component';
 
 
@@ -232,18 +232,18 @@ export class UserService implements OnDestroy {
       return_unsub = onSnapshot(currFriendsCollectionRef, {
         next: (snapshot_friends: QuerySnapshot<DocumentData>) => {
 
-          function removeFriendsFromAllUsers (firestore: Firestore) : void {
+          function removeFriendsFromAllUsers (firestore: Firestore, userArr: UserData[]) : UserData[] {
             snapshot_friends.docChanges().forEach((change) => {
               if (change.type === "added") {
                 /* remove them from the reference */
                 const otherUserEmail = change.doc.data()['email'];
 
-                for (let i = 0; i < requestedUsers.users.length; i++) {
-                  const currListUserEmail = requestedUsers.users[i].email;
+                for (let i = 0; i < userArr.length; i++) {
+                  const currListUserEmail = userArr[i].email;
 
                   if (currListUserEmail === otherUserEmail) {
                     /* remove the user and move onto the next user */
-                    requestedUsers.users.splice(i, 1);
+                    userArr.splice(i, 1);
                     break;
                   }
                 }
@@ -261,13 +261,15 @@ export class UserService implements OnDestroy {
                 getDocs<UserData>(getQuery)
                 .then((snapshot: QuerySnapshot<UserData>) => {
                   /* append the removed friend to the reference */
-                  requestedUsers.users.push(snapshot.docs[0].data());
+                  userArr.push(snapshot.docs[0].data());
                 })
                 .catch((error: FirestoreError) => {
                   console.log("Error appending removed friend to reference");
                 });
               }
             });
+
+            return userArr;
           }
 
           /*
@@ -296,11 +298,39 @@ export class UserService implements OnDestroy {
               }
 
               /* appends all other users to the reference's request */
-              requestedUsers.users = finalUserDocs;
+              // requestedUsers.users = finalUserDocs;
 
-              /* start filtering out users that are friends */
-              removeFriendsFromAllUsers(this.firestore);
+              /* now query all the requests that the current user has sent or recieved and filter those out */
+              const requestQuery = query(collection(this.firestore, "requests").withConverter(requestDataConverter), or(where("sender","==", this.auth.currentUser?.email), where("receiver", "==", this.auth.currentUser?.email)));
+              getDocs(requestQuery)
+              .then((snapshot: QuerySnapshot<DocumentData>) => {
 
+                /* filter users that are friends */
+                removeFriendsFromAllUsers(this.firestore, finalUserDocs);
+
+                /* iterate through the receivers/senders */
+                for (let i = 0; i < snapshot.size; i++) {
+
+                  const receiver = snapshot.docs[i].data()['receiver'];
+                  const sender = snapshot.docs[i].data()['sender'];
+                  const otherUserEmail = (receiver === this.auth.currentUser?.email) ? sender : receiver;
+
+                  /* iterate through the users and remove entries that match the receiver/sender */
+                  for (let j = 0; j < finalUserDocs.length; j++) {
+                    const finalEmail = finalUserDocs[j].email;
+
+                    /* remove the entry and move on to the next receiver/sender */
+                    if (finalEmail === otherUserEmail) {
+                      finalUserDocs.splice(j, 1);
+                      break;
+                    }
+                  }
+                  
+                }
+
+                /* finally update the reference with the updated list */
+                requestedUsers.users = finalUserDocs;
+              });
             })
             .catch((error: FirestoreError) => {
               console.log("Error in relative snapshot with name " + error.name + " and mesage " + error.message);
@@ -308,8 +338,9 @@ export class UserService implements OnDestroy {
 
           }  
           else {
+
             /* reference was initialized, now just add or remove users */
-            removeFriendsFromAllUsers(this.firestore);
+            requestedUsers.users = removeFriendsFromAllUsers(this.firestore, requestedUsers.users);
           }         
 
           

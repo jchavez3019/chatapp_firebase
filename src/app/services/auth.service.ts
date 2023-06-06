@@ -32,28 +32,6 @@ export class AuthService implements OnDestroy {
     this.authStateSubscription = this.authState$.subscribe((aUser: User | null) => {
       //handle auth state changes here. Note, that user will be null if there is no currently logged in user.
       // console.log("Null if not logged in: " + aUser);
-
-      // if (aUser == null) {
-      //   console.log("User is not signed in");
-      //   console.log("auth current user: " + this.auth.currentUser);
-      // }
-      // else {
-      //   console.log("aUser provider data: " + aUser.email);
-      //   console.log("aUser uid: " + aUser.uid);
-      //   console.log("auth current user: " + this.auth.currentUser);
-      // }
-
-      // if (aUser != null) {
-      //   /* set the curr_user if the returned aUser is not null */
-      //   this.curr_user = aUser;
-
-      //   /* update state of user */
-      //   this.curr_user_signed_in = true;
-      // }
-      // else {
-      //   this.curr_user = null;
-      //   this.curr_user_signed_in = false;
-      // }
     });
   }
 
@@ -65,11 +43,8 @@ export class AuthService implements OnDestroy {
 
   /* check Auth */
   authUser(): boolean {
-    // return (this.authstate !== null && this.authState !== undefined) ? true : false;
-    // return false;
 
     /* return whether or not the user is signed in */
-    // return this.curr_user_signed_in;
     return (this.auth.currentUser != null) ? true : false;
   }
 
