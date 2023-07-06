@@ -360,5 +360,10 @@ export class UserService implements OnDestroy {
 
   }
 
+  /* instant search for add friend component */
+  // instantSearch(startValue, endValue) {
+  //   return this.afs.collection('users', ref=> )
+  // }
+
 
 }

@@ -3,6 +3,7 @@ import { UserService } from '../../services/user.service';
 import { Firestore, FirestoreError, QuerySnapshot, DocumentSnapshot } from '@angular/fire/firestore';
 import { Unsubscribe, User, UserProfile } from '@angular/fire/auth';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Observable, Subject, combineLatest, pipe, take } from 'rxjs';
 
 /* firestore data types */
 import { UserData } from 'src/app/firestore.datatypes';
@@ -17,6 +18,9 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
 
   users: add_component_users = { users: [], initialized: false };
   private unsubUsers: Unsubscribe | undefined = undefined;
+
+  startAt = new Subject();
+  endAt = new Subject();
 
 
   constructor(private userService: UserService, private requestsService: RequestsService ,private snackBar: MatSnackBar) { }
@@ -58,8 +62,15 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
     });
   }
 
-  instantSearch(event: any) {
-    
+  instantSearch($event: any) {
+      // let q = $event.target.value;
+      // if (q != '') {
+      //   this.startAt.next(q);
+      //   this.endAt.next(q + "\uf8ff");
+      //   combineLatest([this.startAt, this.endAt]).pipe(take(1)).subscribe((value) => {
+      //     this.userService.instantSearch(value[0], value[1]);
+      //   })
+      // }
   }
 
 }

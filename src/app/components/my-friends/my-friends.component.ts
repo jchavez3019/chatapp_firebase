@@ -17,21 +17,10 @@ export class MyFriendsComponent implements OnInit {
 
   ngOnInit(): void {
 
-    /* get all the friends */
-    this.getAllFriends();
-  }
-
-  /* gets all the current user's friends from firebase */
-  getAllFriends() {
-
-    this.friendsService.getMyFriends()
-    .then((retFriends: UserData[]) => {
-      this.userFriends = retFriends;
-    })
-    .catch((error) => {
-      console.log("Error getting friends from component with head: " + error.name + " with message: " + error.message);
+    /* subscribe to received updated friend's list for the current user */
+    this.friendsService.allFriendsSubject.subscribe((updatedFriends: UserData[]) => {
+      this.userFriends = updatedFriends;
     });
-
   }
 
 }

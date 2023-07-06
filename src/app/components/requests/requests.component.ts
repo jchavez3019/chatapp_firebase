@@ -17,14 +17,18 @@ export class RequestsComponent implements OnInit, OnDestroy {
   private unsubMyRequests: any;
 
   /* all the friend requests for the current user */
-  requests: req = {requests: []};
+  // requests: req = {requests: []};
+
+  receivedRequests: UserData[] = [];
 
   constructor(private requestsService: RequestsService, private userServer: UserService, private snackBar: MatSnackBar) { }
 
   ngOnInit(): void {
 
     /* subscribe to the user's that have sent the current user a friend request */
-    this.unsubMyRequests = this.requestsService.getMyRequests(this.requests);
+    this.requestsService.receivedRequestsSubject.subscribe((updatedReceivedRequests: UserData[]) => {
+      this.receivedRequests = updatedReceivedRequests;
+    });
 
   }
 
