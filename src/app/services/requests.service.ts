@@ -1,8 +1,10 @@
 import { Injectable, inject } from '@angular/core';
 import { Subject } from 'rxjs';
 import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, Unsubscribe } from '@angular/fire/auth';
-import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, and, or, setDoc, doc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, query, QuerySnapshot, FirestoreError, DocumentData, where, QueryFilterConstraint, deleteDoc } from '@angular/fire/firestore';
+import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, and, or, setDoc, doc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, query, QuerySnapshot, FirestoreError, DocumentData, where, QueryFilterConstraint, deleteDoc, WriteBatch, writeBatch } from '@angular/fire/firestore';
 import { RequestData, UserData, requestDataConverter, userDataConverter } from '../firestore.datatypes';
+import { write } from 'fs';
+import { FriendsService } from './friends.service';
 
 @Injectable({
   providedIn: 'root'
@@ -24,7 +26,7 @@ export class RequestsService {
   private receivedRequestsOnsnapshotUnsubscribe: Unsubscribe | null = null;
   private sentRequestsOnsnapshotUnsubscribe: Unsubscribe | null = null;
 
-  constructor() {
+  constructor(private friendsService: FriendsService) {
       /* subscribe to the friend requests the current user has received */
       this.initializeReceivedRequestsSubject();
 
@@ -51,20 +53,27 @@ export class RequestsService {
           updatedOtherUsersEmails.push(receivedRequests_snapshot.docs[i].data()['sender']);
         }
 
-        /* get the user data for these other users that are receiving a friend request from the current user */
-        const updatedOtherUsersDataQuery = query(collection(this.firestore, "users").withConverter(userDataConverter), where("email","in",updatedOtherUsersEmails));
-        getDocs(updatedOtherUsersDataQuery)
-        .then((receivedRequestsUserData_snapshot: QuerySnapshot<UserData>) => {
+        if (updatedOtherUsersEmails.length == 0) {
+          /* The current user has not received any requests, simply emit an empty array */
+          this.receivedRequestsSubject.next([]);
+        }
+        else {
+          /* get the user data for these other users that are receiving a friend request from the current user */
+          const updatedOtherUsersDataQuery = query(collection(this.firestore, "users").withConverter(userDataConverter), where("email","in",updatedOtherUsersEmails));
+          getDocs(updatedOtherUsersDataQuery)
+          .then((receivedRequestsUserData_snapshot: QuerySnapshot<UserData>) => {
 
-          /* extract the user data for the other users */
-          let updatedOtherUsersData: UserData[] = [];
-          for (let i = 0; i < receivedRequestsUserData_snapshot.size; i++) {
-            updatedOtherUsersData.push(receivedRequestsUserData_snapshot.docs[i].data());
-          }
+            /* extract the user data for the other users */
+            let updatedOtherUsersData: UserData[] = [];
+            for (let i = 0; i < receivedRequestsUserData_snapshot.size; i++) {
+              updatedOtherUsersData.push(receivedRequestsUserData_snapshot.docs[i].data());
+            }
 
-          /* emit the updated list */
-          this.receivedRequestsSubject.next(updatedOtherUsersData);
-        });
+            /* emit the updated list */
+            this.receivedRequestsSubject.next(updatedOtherUsersData);
+          });
+        }
+        
       }
     })
   }
@@ -80,20 +89,27 @@ export class RequestsService {
           updatedOtherUsersEmails.push(sentRequests_snapshot.docs[i].data()['sender']);
         }
 
-        /* get the user data for these other users that are receiving a friend request from the current user */
-        const updatedOtherUsersDataQuery = query(collection(this.firestore, "users").withConverter(userDataConverter), where("email","in",updatedOtherUsersEmails));
-        getDocs(updatedOtherUsersDataQuery)
-        .then((sentRequestsUserData_snapshot: QuerySnapshot<UserData>) => {
+        if (updatedOtherUsersEmails.length == 0) {
+          /* The current user has not received any requests, simply emit an empty array */
+          this.sentRequestsSubject.next([]);
+        }
+        else {
+          /* get the user data for these other users that are receiving a friend request from the current user */
+          const updatedOtherUsersDataQuery = query(collection(this.firestore, "users").withConverter(userDataConverter), where("email","in",updatedOtherUsersEmails));
+          getDocs(updatedOtherUsersDataQuery)
+          .then((sentRequestsUserData_snapshot: QuerySnapshot<UserData>) => {
 
-          /* extract the user data for the other users */
-          let updatedOtherUsersData: UserData[] = [];
-          for (let i = 0; i < sentRequestsUserData_snapshot.size; i++) {
-            updatedOtherUsersData.push(sentRequestsUserData_snapshot.docs[i].data());
-          }
+            /* extract the user data for the other users */
+            let updatedOtherUsersData: UserData[] = [];
+            for (let i = 0; i < sentRequestsUserData_snapshot.size; i++) {
+              updatedOtherUsersData.push(sentRequestsUserData_snapshot.docs[i].data());
+            }
 
-          /* emit the updated list */
-          this.sentRequestsSubject.next(updatedOtherUsersData);
-        });
+            /* emit the updated list */
+            this.sentRequestsSubject.next(updatedOtherUsersData);
+          });
+        }
+        
       }
     });
   }
@@ -116,7 +132,24 @@ export class RequestsService {
     return addDoc<RequestData>(this.requestCollectionRef.withConverter(requestDataConverter), newFriendRequest);
   }
 
+  /* Author: Jorge Chavez
+    Description: Accepts a friend request. 
+    Inputs: friendRequest: any --
+    Outputs: None
+    returns: None
+    Effects: Accepts friend request and updates Firestore
+    Notes: Will be updated to use WriteBatch since the Firestore operations should be atomic.
+  */
   acceptRequests(friendRequest: any) {
+    
+    let currUserMyFriendsCollection: CollectionReference;
+
+    if (this.friendsService.currUserMyFriendsCollection != null) {
+      currUserMyFriendsCollection = this.friendsService.currUserMyFriendsCollection;
+    }
+    else {
+      return new Promise((resolve, reject) => { reject("No collection reference exists to the current user's myFriends subcollection") });
+    }
 
     return new Promise((resolve, reject) => {
 
@@ -125,9 +158,13 @@ export class RequestsService {
         it resolves the firebase promises
       */
       (async () => {
+
+        
         /* emails */
         const currUserEmail = this.auth.currentUser?.email;
         const otherUserEmail = friendRequest.email;
+
+        let acceptRequestBatch: WriteBatch = writeBatch(this.firestore); // batch for atomic operations in Firestore
 
         /* querires for both users */
         const currUserFriendsQuery = query(this.friendsCollectionRef, where("email","==", this.auth.currentUser?.email));
@@ -135,20 +172,17 @@ export class RequestsService {
 
         /* add other user as a friend for the current user */
         const prom1 = getDocs(currUserFriendsQuery)
-        .then((snapshot: QuerySnapshot<DocumentData>) => {
+        .then(async (snapshot: QuerySnapshot<DocumentData>) => {
 
           /* if the document does not exist, create it with a subcollection */
           if (snapshot.empty) {
 
             /* create the new document for the current user */
-            addDoc(this.friendsCollectionRef, { email: currUserEmail })
+            await addDoc(this.friendsCollectionRef, { email: currUserEmail })
             .then((docRef: DocumentReference<DocumentData>) => {
-              /* get the id of the new document and generate a ref for the new subcollection */
-              const docId = docRef.id;
-              const newSubDocRef = doc(this.firestore, `friends/${docId}`);
 
               /* create the new subcollection with one new entry */
-              setDoc(newSubDocRef, { email: otherUserEmail });
+              acceptRequestBatch.set(doc(currUserMyFriendsCollection), {email: otherUserEmail });
             })
           }
           /* multiple friend documents for a single user exists, this is an error */
@@ -161,31 +195,34 @@ export class RequestsService {
             /* get the id of the current user's friend document */
             const docId = snapshot.docs[0].id;
 
-            /* get the reference to the subcollection */
+            /* get the reference to the subcollection and generate a new myFriends document */
             const subCollectionRef = collection(this.firestore, `friends/${docId}/myFriends`);
+            const newSubDocRef = doc(subCollectionRef);
 
             /* append the other user as a new friend */
-            addDoc(subCollectionRef, { email: otherUserEmail });
+            acceptRequestBatch.set(newSubDocRef, { email: otherUserEmail });
 
           }
+        })
+        .catch((error: FirestoreError) => {
+          reject(error);
         });
 
         /* add the current user as a friend for the other user */
         const prom2 = getDocs(otherUserFriendsQuery)
-        .then((snapshot: QuerySnapshot<DocumentData>) => {
+        .then(async (snapshot: QuerySnapshot<DocumentData>) => {
 
           /* if the document does not exist, create it with a subcollection */
           if (snapshot.empty) {
 
             /* create the new document for the other user */
-            addDoc(this.friendsCollectionRef, { email: otherUserEmail })
+            await addDoc(this.friendsCollectionRef, { email: otherUserEmail })
             .then((docRef: DocumentReference<DocumentData>) => {
               /* get the id of the new document and generate a ref for the new subcollection */
-              const docId = docRef.id;
-              const newSubDocRef = doc(this.firestore, `friends/${docId}`);
+              const myFriendsSubcollection = collection(this.firestore, `friends/${docRef.id}/myFriends`);
 
               /* create the new subcollection with one new entry */
-              setDoc(newSubDocRef, { email: currUserEmail });
+              acceptRequestBatch.set(doc(myFriendsSubcollection), { email: currUserEmail });
             })
           }
           /* multiple friend documents for a single user exists, this is an error */
@@ -198,12 +235,16 @@ export class RequestsService {
             /* get the id of the current user's friend document */
             const docId = snapshot.docs[0].id;
 
-            /* get the reference to the subcollection */
+            /* get the reference to the subcollection and generate a new myFriends document */
             const subCollectionRef = collection(this.firestore, `friends/${docId}/myFriends`);
+            const newSubDocRef = doc(subCollectionRef);
 
             /* append the other user as a new friend */
-            addDoc(subCollectionRef, { email: currUserEmail });
+            acceptRequestBatch.set(newSubDocRef, { email: currUserEmail });
           }
+        })
+        .catch((error: FirestoreError) => {
+          reject(error);
         });
 
         /* remove the friend request now that is has been accepted */
@@ -232,11 +273,11 @@ export class RequestsService {
             console.log("Removing request with id: " + docId);
 
             /* delete the request */
-            deleteDoc(docRef)
-            .catch((error) => {
-              console.log("Error delting doc");
-            });
+            acceptRequestBatch.delete(docRef);
           }
+        })
+        .catch((error: FirestoreError) => {
+          reject(error);
         });
 
         /* now need to check edge case where the other user has also sent a friend request */
@@ -257,16 +298,24 @@ export class RequestsService {
           console.log("Removing request with id: " + docId);
 
           /* delete the request */
-          deleteDoc(docRef)
-          .catch((error) => {
-            console.log("Error delting doc");
-          });
+          acceptRequestBatch.delete(docRef);
           
+        })
+        .catch((error: FirestoreError) => {
+          reject(error);
         });
 
         await Promise.all([prom1, prom2, prom3, prom4]);
 
-        resolve("Success");
+        /* commit all the changes to Firestore atomically */
+        acceptRequestBatch.commit()
+        .then(() => {
+          resolve("Successful writeBatch to Firestore");
+        })
+        .catch( (error: FirestoreError) => {
+          reject(error);
+        });
+
       })();
     });
   };

@@ -171,29 +171,25 @@ export class UserService implements OnDestroy {
 
 
   /* get absolutely all users */
-  getAbsoluteAllUsers(requestedUsers: add_component_users): Unsubscribe {
-    /* get a reference to the collection of users */
-    const userCollection = collection(this.firestore, 'users').withConverter(userDataConverter);
+  async getAbsoluteAllUsers(): Promise<UserData[]> {
 
-    const unsubSnapshot = onSnapshot(userCollection, {
-      next: (snapshot: QuerySnapshot<UserData>) => {
-        let updatedUsers: UserData[] = [];
+    return new Promise((resolve, reject) => {
+      /* get a reference to the collection of users */
+      const userCollection = collection(this.firestore, 'users').withConverter(userDataConverter);
 
-        for (let i = 0; i < snapshot.size; i++) {
-          const currUser: UserData = snapshot.docs[i].data();
-          updatedUsers.push(currUser);
-        }
+      getDocs(userCollection)
+      .then((users_snapshot: QuerySnapshot<UserData>) => {
+        let allUsers: UserData[] = [];
+        for (let i = 0; i < users_snapshot.size; i++)
+          allUsers.push(users_snapshot.docs[i].data());
 
-        requestedUsers.users = updatedUsers;
-      },
-
-      error: (error: FirestoreError) => {
-        console.log("Error getting absolute all users");
-      }
+        resolve(allUsers);
+      })
+      .catch((error: FirestoreError) => {
+        reject(error);
+      });
     });
 
-    /* create snapshot using the specificed observer functions and return unsubscribe */
-    return unsubSnapshot;
   }
 
   /* gets all users that is not the current user or a friend of the current user */

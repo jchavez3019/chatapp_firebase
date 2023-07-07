@@ -5,6 +5,7 @@ import { UserService } from 'src/app/services/user.service';
 import { QuerySnapshot, FirestoreError } from '@angular/fire/firestore';
 
 import { UserData } from 'src/app/firestore.datatypes';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-requests',
@@ -21,13 +22,16 @@ export class RequestsComponent implements OnInit, OnDestroy {
 
   receivedRequests: UserData[] = [];
 
+  private receivedRequestsSubjectSubscription: Subscription | null = null;
+
   constructor(private requestsService: RequestsService, private userServer: UserService, private snackBar: MatSnackBar) { }
 
   ngOnInit(): void {
 
     /* subscribe to the user's that have sent the current user a friend request */
-    this.requestsService.receivedRequestsSubject.subscribe((updatedReceivedRequests: UserData[]) => {
+    this.receivedRequestsSubjectSubscription = this.requestsService.receivedRequestsSubject.subscribe((updatedReceivedRequests: UserData[]) => {
       this.receivedRequests = updatedReceivedRequests;
+      console.log("Updated change with received requests in requests component");
     });
 
   }
@@ -35,6 +39,11 @@ export class RequestsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     /* unsubscribe to requests snapshot */
     this.unsubMyRequests();
+
+    /* unsubscribe to receivedRequestsSubject */
+    if (this.receivedRequestsSubjectSubscription != null) {
+      this.receivedRequestsSubjectSubscription.unsubscribe();
+    }
   }
 
   /* accepts a friend request */

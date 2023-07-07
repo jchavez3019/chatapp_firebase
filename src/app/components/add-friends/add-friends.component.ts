@@ -3,11 +3,12 @@ import { UserService } from '../../services/user.service';
 import { Firestore, FirestoreError, QuerySnapshot, DocumentSnapshot } from '@angular/fire/firestore';
 import { Unsubscribe, User, UserProfile } from '@angular/fire/auth';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Observable, Subject, combineLatest, pipe, take } from 'rxjs';
+import { Observable, Subject, Subscription, combineLatest, pipe, take } from 'rxjs';
 
 /* firestore data types */
 import { UserData } from 'src/app/firestore.datatypes';
 import { RequestsService } from 'src/app/services/requests.service';
+import { SuggestionsService } from 'src/app/services/suggestions.service';
 
 @Component({
   selector: 'app-add-friends',
@@ -16,23 +17,46 @@ import { RequestsService } from 'src/app/services/requests.service';
 })
 export class AddFriendsComponent implements OnInit, OnDestroy {
 
-  users: add_component_users = { users: [], initialized: false };
+  // users: add_component_users = { users: [], initialized: false };
+  users: UserData[] = [];
   private unsubUsers: Unsubscribe | undefined = undefined;
 
   startAt = new Subject();
   endAt = new Subject();
 
+  /* subscriptions */
+  private suggestionsSubjectSubscription: Subscription | null = null;
 
-  constructor(private userService: UserService, private requestsService: RequestsService ,private snackBar: MatSnackBar) { }
+
+  constructor(private userService: UserService, private requestsService: RequestsService, private suggestionsService: SuggestionsService ,private snackBar: MatSnackBar) { }
 
   ngOnInit(): void {
 
     /* call snapshot that updates all other users */
-    this.userService.getRelativeAllUsers(this.users)
-    .then((ret_unsub) => {
-      if (ret_unsub != undefined)
-        this.unsubUsers = ret_unsub;
-    });
+    // this.userService.getRelativeAllUsers(this.users)
+    // .then((ret_unsub) => {
+    //   if (ret_unsub != undefined)
+    //     this.unsubUsers = ret_unsub;
+    // });
+
+    /* grab all existing users once */
+    // this.userService.getAbsoluteAllUsers()
+    // .then((allUsers: UserData[]) => {
+    //   this.users = allUsers;
+    // })
+    // .catch((error) => {
+    //   console.log("Error getting all users with message: " + error.message);
+    // });
+
+    /* grabs suggested users */
+    this.suggestionsSubjectSubscription = this.suggestionsService.suggestsSubject.subscribe(
+      (updatedSuggestions: UserData[]) => {
+        this.users = updatedSuggestions;
+        console.log("received updated suggestions");
+      }
+    );
+
+
 
   }
 
@@ -41,6 +65,10 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
     if (this.unsubUsers != undefined) {
       this.unsubUsers();
     }
+
+    /* unsubscribe to subjects */
+    if (this.suggestionsSubjectSubscription != null)
+      this.suggestionsSubjectSubscription.unsubscribe();
   }
 
   addFriend(user: UserData) {
@@ -48,11 +76,11 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
     .then(() => {
 
       /* now remove the user from the local users list */
-      for (let i = 0; i < this.users.users.length; i++) {
-        const currUserEmail = this.users.users[i].email;
+      for (let i = 0; i < this.users.length; i++) {
+        const currUserEmail = this.users[i].email;
 
         if (user.email === currUserEmail) {
-          this.users.users.splice(i, 1);
+          this.users.splice(i, 1);
           break;
         }
       }

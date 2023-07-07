@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { Subscription } from 'rxjs';
 
 /* templates */
 import { UserData } from 'src/app/firestore.datatypes';
@@ -13,14 +14,23 @@ export class MyFriendsComponent implements OnInit {
 
   userFriends: UserData[] = [];
 
+  private allFriendsSubjectSubscription: Subscription | null = null;
+
   constructor(private friendsService: FriendsService) { }
 
   ngOnInit(): void {
 
     /* subscribe to received updated friend's list for the current user */
-    this.friendsService.allFriendsSubject.subscribe((updatedFriends: UserData[]) => {
+    this.allFriendsSubjectSubscription = this.friendsService.allFriendsSubject.subscribe((updatedFriends: UserData[]) => {
       this.userFriends = updatedFriends;
     });
+  }
+
+  ngOnDestory(): void {
+
+    /* unsubscribe to allFriendsSubject */
+    if (this.allFriendsSubjectSubscription != null)
+      this.allFriendsSubjectSubscription.unsubscribe();
   }
 
 }
