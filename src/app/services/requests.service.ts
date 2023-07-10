@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Subject } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
 import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, Unsubscribe } from '@angular/fire/auth';
 import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, and, or, setDoc, doc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, query, QuerySnapshot, FirestoreError, DocumentData, where, QueryFilterConstraint, deleteDoc, WriteBatch, writeBatch } from '@angular/fire/firestore';
 import { RequestData, UserData, requestDataConverter, userDataConverter } from '../firestore.datatypes';
@@ -19,8 +19,8 @@ export class RequestsService {
   private usersCollectionRef: CollectionReference = collection(this.firestore, "users");
 
   /* fields that will be updated by snapshots */
-  receivedRequestsSubject: Subject<UserData[]> = new Subject();
-  sentRequestsSubject: Subject<UserData[]> = new Subject();
+  receivedRequestsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
+  sentRequestsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
 
   /* snapshot subscriptions that must be unsubscribed to */
   private receivedRequestsOnsnapshotUnsubscribe: Unsubscribe | null = null;
@@ -86,7 +86,7 @@ export class RequestsService {
         /* extract the emails of the users that the current user has sent requests to */
         let updatedOtherUsersEmails: string[] = [];
         for (let i = 0; i < sentRequests_snapshot.size; i++) {
-          updatedOtherUsersEmails.push(sentRequests_snapshot.docs[i].data()['sender']);
+          updatedOtherUsersEmails.push(sentRequests_snapshot.docs[i].data()['receiver']);
         }
 
         if (updatedOtherUsersEmails.length == 0) {

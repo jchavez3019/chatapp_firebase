@@ -1,11 +1,11 @@
 import { Injectable, inject } from '@angular/core';
-import { Subscription, Subject, combineLatest, mergeAll } from 'rxjs';
+import { Subscription, combineLatest, skip, BehaviorSubject, map } from 'rxjs';
 import { FriendsService } from './friends.service';
 import { RequestsService } from './requests.service';
 import { UserData, userDataConverter } from '../firestore.datatypes';
 
-import { Auth, User } from '@angular/fire/auth';
-import { Firestore, collection, query, where, and, or, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, snapToData, QuerySnapshot, QueryFilterConstraint, FirestoreError, DocumentData, startAfter, orderBy, limit } from '@angular/fire/firestore';
+import { Auth } from '@angular/fire/auth';
+import { Firestore, collection, query, getDocs, QuerySnapshot, startAfter, orderBy, limit } from '@angular/fire/firestore';
 
 
 @Injectable({
@@ -18,9 +18,9 @@ export class SuggestionsService {
 
   private combineSubscription: Subscription | null = null;
 
-  private nonSuggestableUsers: UserData[] = [];
+  private nonSuggestableUsers: string[] = [];
 
-  suggestsSubject: Subject<UserData[]> = new Subject();
+  suggestsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
 
 
   constructor(private friendsService: FriendsService, private requestsService: RequestsService) {
@@ -40,9 +40,14 @@ export class SuggestionsService {
   initializeBasicSuggestions() {
     const newSuggestionsDesiredLength = 50;
     combineLatest([this.friendsService.allFriendsSubject, this.requestsService.receivedRequestsSubject, this.requestsService.sentRequestsSubject]).pipe(
-      mergeAll() // merges all the users into a single array
+      skip(3), // the first 3 emisions are of empty arrays
+      map(([allFriends, receivedRequests, sentRequests], i) => {
+        /* returns the emails from all 3 observables into a single array */
+        return Array(...allFriends.map((userData) => userData.email), ...receivedRequests.map((userData) => userData.email), ...sentRequests.map((userData) => userData.email));
+      })
     )
-    .subscribe((usersNotToSuggest: UserData[]) => {
+    .subscribe((usersNotToSuggest: string[]) => {
+
       this.nonSuggestableUsers = usersNotToSuggest;
 
       let newSuggestions: UserData[] = [];
@@ -53,15 +58,20 @@ export class SuggestionsService {
 
         let lastEmail: string = "";
         for (let i = 0; i < users_snapshot.size; i++) {
+
           let curr_data = users_snapshot.docs[i].data();
-          if (!this.nonSuggestableUsers.includes(curr_data) && curr_data.email != this.auth.currentUser?.email) {
+          /* if the user is not the current user and its not prohibited from being suggested, add it as a suggestion */
+          if (!this.nonSuggestableUsers.includes(curr_data.email) && (curr_data.email != this.auth.currentUser?.email)) {
             newSuggestions.push(curr_data);
           }
+
+          /* save the last email from the query so that the next query can pick up where the current query left off */
           if (i === users_snapshot.size - 1)
             lastEmail = curr_data.email;
         }
 
-        if (newSuggestions.length === newSuggestionsDesiredLength) {
+        if ((newSuggestions.length === newSuggestionsDesiredLength) || (users_snapshot.size < newSuggestionsDesiredLength)) {
+          /* got the desired length or there simply exists not enough users in the database to get the desired length */
           this.suggestsSubject.next(newSuggestions);
         }
         else {
@@ -91,7 +101,7 @@ export class SuggestionsService {
         let curr_data = users_snapshot.docs[i].data(); // current snapshot data
 
         /* if the user can be suggested, append it */
-        if (!this.nonSuggestableUsers.includes(curr_data)) {
+        if (!this.nonSuggestableUsers.includes(curr_data.email)) {
           newSuggestions.push(curr_data);
         }
 

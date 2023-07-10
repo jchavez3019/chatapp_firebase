@@ -2,14 +2,14 @@
   This service deals with friends, friend requests, friend suggestions, and searching for users to add as friends.
 */
 import { Injectable, inject } from '@angular/core';
-import { Subject } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
 
 /* firebase */
 import { Auth, User } from '@angular/fire/auth';
 import { Firestore, FirestoreError, where, collection, getDocs, query, DocumentData, QuerySnapshot, addDoc, DocumentReference, Unsubscribe, onSnapshot, doc, writeBatch, WriteBatch, CollectionReference } from '@angular/fire/firestore';
 
 /* templates */
-import { UserData, RequestData, requestDataConverter, userDataConverter } from '../firestore.datatypes';
+import { UserData, userDataConverter } from '../firestore.datatypes';
 
 @Injectable({
   providedIn: 'root'
@@ -20,7 +20,7 @@ export class FriendsService {
   private firestore: Firestore = inject(Firestore);
 
   /* these are the fields that will be updated by snapshots */
-  allFriendsSubject: Subject<UserData[]> = new Subject();
+  allFriendsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
 
   /* path to current user's 'myFriends' sub collection */
   currUserMyFriendsCollection: CollectionReference | null = null;
@@ -75,7 +75,6 @@ export class FriendsService {
       }
 
       /* create a snapshot for the myFriends subcollection and emit through the allFriends Subject when there is a change */
-      /* DEBUG: attempting to create a query instead of using a collection for snapshot */
       const friendsSubCollectionRef = query(<CollectionReference>this.currUserMyFriendsCollection, where("email", "!=", this.auth.currentUser?.email));
       this.allFriendsOnsnapshotUnsubscribe = onSnapshot(friendsSubCollectionRef,
         (myFriendsSnapshot: QuerySnapshot<DocumentData>) => {
@@ -86,7 +85,7 @@ export class FriendsService {
             updatedFriendsEmails.push(myFriendsSnapshot.docs[i].data()['email']);
           }
 
-          if (updatedFriendsEmails.length == 0) {
+          if (updatedFriendsEmails.length === 0) {
             /* The user has no friends so emit an empty array */
             this.allFriendsSubject.next([]);
           }

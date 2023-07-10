@@ -3,7 +3,7 @@ import { UserService } from '../../services/user.service';
 import { Firestore, FirestoreError, QuerySnapshot, DocumentSnapshot } from '@angular/fire/firestore';
 import { Unsubscribe, User, UserProfile } from '@angular/fire/auth';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Observable, Subject, Subscription, combineLatest, pipe, take } from 'rxjs';
+import { Observable, BehaviorSubject, Subscription, combineLatest, pipe, take } from 'rxjs';
 
 /* firestore data types */
 import { UserData } from 'src/app/firestore.datatypes';
@@ -21,8 +21,8 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
   users: UserData[] = [];
   private unsubUsers: Unsubscribe | undefined = undefined;
 
-  startAt = new Subject();
-  endAt = new Subject();
+  // startAt = new Subject();
+  // endAt = new Subject();
 
   /* subscriptions */
   private suggestionsSubjectSubscription: Subscription | null = null;
@@ -31,22 +31,6 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
   constructor(private userService: UserService, private requestsService: RequestsService, private suggestionsService: SuggestionsService ,private snackBar: MatSnackBar) { }
 
   ngOnInit(): void {
-
-    /* call snapshot that updates all other users */
-    // this.userService.getRelativeAllUsers(this.users)
-    // .then((ret_unsub) => {
-    //   if (ret_unsub != undefined)
-    //     this.unsubUsers = ret_unsub;
-    // });
-
-    /* grab all existing users once */
-    // this.userService.getAbsoluteAllUsers()
-    // .then((allUsers: UserData[]) => {
-    //   this.users = allUsers;
-    // })
-    // .catch((error) => {
-    //   console.log("Error getting all users with message: " + error.message);
-    // });
 
     /* grabs suggested users */
     this.suggestionsSubjectSubscription = this.suggestionsService.suggestsSubject.subscribe(
