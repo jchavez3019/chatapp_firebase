@@ -1,9 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
-import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, Unsubscribe } from '@angular/fire/auth';
+import { Auth, Unsubscribe } from '@angular/fire/auth';
 import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, and, or, setDoc, doc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, query, QuerySnapshot, FirestoreError, DocumentData, where, QueryFilterConstraint, deleteDoc, WriteBatch, writeBatch } from '@angular/fire/firestore';
 import { RequestData, UserData, requestDataConverter, userDataConverter } from '../firestore.datatypes';
-import { write } from 'fs';
 import { FriendsService } from './friends.service';
 
 @Injectable({

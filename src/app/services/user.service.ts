@@ -1,12 +1,13 @@
 import { Injectable, inject, OnDestroy, Query } from '@angular/core';
 import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, Unsubscribe } from '@angular/fire/auth';
-import { Firestore, collection, query, where, and, or, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, snapToData, QuerySnapshot, QueryFilterConstraint, FirestoreError, DocumentData } from '@angular/fire/firestore';
+import { Firestore, collection, query, where, and, or, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, snapToData, QuerySnapshot, QueryFilterConstraint, FirestoreError, DocumentData, orderBy, startAt, endAt, limit } from '@angular/fire/firestore';
 import { Storage, UploadTask, uploadBytesResumable, ref, StorageReference, TaskEvent, uploadBytes, getDownloadURL } from '@angular/fire/storage';
 import { BehaviorSubject } from 'rxjs';
 
 /* firebase data interfaces */
 import { UserData, UserStatus, requestDataConverter, userDataConverter, userStatusConverter } from '../firestore.datatypes';
 import { add_component_users } from '../components/add-friends/add-friends.component';
+import { start } from 'repl';
 
 
 @Injectable({
@@ -26,8 +27,9 @@ export class UserService implements OnDestroy {
   /* current user whose information will be displayed in the dashboard */
   /*NOTE: look into FirestoreConverter */
   currentUser: BehaviorSubject<UserData | undefined> = new BehaviorSubject<UserData | undefined>({
-    email: "",
     displayName: "",
+    lowercaseName: "",
+    email: "",
     photoURL: "",
     uid: ""
   });
@@ -357,9 +359,21 @@ export class UserService implements OnDestroy {
   }
 
   /* instant search for add friend component */
-  // instantSearch(startValue, endValue) {
-  //   return this.afs.collection('users', ref=> )
-  // }
+  async instantSearch(textSearch: string) {
+
+    let searchResults: UserData[] = [];
+    await getDocs(query(collection(this.firestore, 'users').withConverter(userDataConverter), orderBy("lowercaseName"), startAt(textSearch), endAt(textSearch + '\uf8ff'), limit(20) ))
+    .then((searched_snapshot: QuerySnapshot<UserData>) => {
+      for (let i = 0; i < searched_snapshot.size; i++) {
+        searchResults.push(searched_snapshot.docs[i].data());
+      }
+    })
+    .catch((error: FirestoreError) => {
+      console.log("Error searching for users with message: " + error.message);
+    });
+
+    return searchResults;
+  }
 
 
 }

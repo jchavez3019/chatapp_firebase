@@ -11,6 +11,7 @@ import { FirestoreDataConverter, DocumentData, QueryDocumentSnapshot } from "@an
 /* interface */
 export interface UserData {
     displayName: string;
+    lowercaseName: string;
     email: string;
     photoURL: string;
     uid: string;

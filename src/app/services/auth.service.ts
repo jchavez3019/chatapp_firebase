@@ -1,6 +1,6 @@
 import { Injectable, OnDestroy, inject } from '@angular/core';
 import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, UserProfile } from '@angular/fire/auth';
-import { Firestore, collection, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc } from '@angular/fire/firestore';
+import { Firestore, setDoc, doc } from '@angular/fire/firestore';
 import { Router } from '@angular/router';
 
 /* firebase data types */
@@ -160,6 +160,7 @@ export class AuthService implements OnDestroy {
       const newUserData: UserData = {
         email: email, 
         displayName: displayName,
+        lowercaseName: displayName.toLowerCase(),
         photoURL: photoURL,
         uid: userId
       };

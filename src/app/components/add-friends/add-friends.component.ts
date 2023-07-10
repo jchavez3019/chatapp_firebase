@@ -18,8 +18,11 @@ import { SuggestionsService } from 'src/app/services/suggestions.service';
 export class AddFriendsComponent implements OnInit, OnDestroy {
 
   // users: add_component_users = { users: [], initialized: false };
-  users: UserData[] = [];
+  private suggestedUsers: UserData[] = [];
+  usersToAdd: UserData[] = [];
   private unsubUsers: Unsubscribe | undefined = undefined;
+
+  private userIsSearching: Boolean = false;
 
   // startAt = new Subject();
   // endAt = new Subject();
@@ -35,7 +38,10 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
     /* grabs suggested users */
     this.suggestionsSubjectSubscription = this.suggestionsService.suggestsSubject.subscribe(
       (updatedSuggestions: UserData[]) => {
-        this.users = updatedSuggestions;
+        this.suggestedUsers = updatedSuggestions;
+        if (this.userIsSearching === false) {
+          this.usersToAdd = this.suggestedUsers;
+        }
         console.log("received updated suggestions");
       }
     );
@@ -60,29 +66,34 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
     .then(() => {
 
       /* now remove the user from the local users list */
-      for (let i = 0; i < this.users.length; i++) {
-        const currUserEmail = this.users[i].email;
+      // for (let i = 0; i < this.users.length; i++) {
+      //   const currUserEmail = this.users[i].email;
 
-        if (user.email === currUserEmail) {
-          this.users.splice(i, 1);
-          break;
-        }
-      }
+      //   if (user.email === currUserEmail) {
+      //     this.users.splice(i, 1);
+      //     break;
+      //   }
+      // }
+
 
       /* display a message alerting that a request was successful */
       this.snackBar.open('Request Sent', 'Okay', { duration: 3000 });
     });
   }
 
-  instantSearch($event: any) {
-      // let q = $event.target.value;
-      // if (q != '') {
-      //   this.startAt.next(q);
-      //   this.endAt.next(q + "\uf8ff");
-      //   combineLatest([this.startAt, this.endAt]).pipe(take(1)).subscribe((value) => {
-      //     this.userService.instantSearch(value[0], value[1]);
-      //   })
-      // }
+  async instantSearch($event: any) {
+      let q = $event.target.value;
+      if (q != '') {
+        /* if the user is trying to do a search, get the results and display them */
+        this.userIsSearching = true;
+        this.usersToAdd = await this.userService.instantSearch(q);
+
+      }
+      else {
+        /* if the users is not trying to do a search, display the suggested users */
+        this.userIsSearching = false;
+        this.usersToAdd = this.suggestedUsers;
+      }
   }
 
 }
