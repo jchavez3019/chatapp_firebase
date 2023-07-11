@@ -22,9 +22,7 @@ export class RequestsService {
 
   /* subjects */
   receivedRequestsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
-  newlyAcceptedFriend: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
-  newlyReceivedRequests: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
-  newlySentRequests: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
+  sentRequestsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
 
   private initializedAcceptedSubject = false;
 
@@ -85,17 +83,9 @@ export class RequestsService {
           .then((receivedRequestsUserData_snapshot: QuerySnapshot<UserData>) => {
 
             /* extract the user data for the other users */
-            let nextNewlyReceivedEmission: UserData[] = [];
-            for (let i = 0; i < receivedRequestsUserData_snapshot.size; i++) {
-              /* push the new request to the array holding all requests */
-              this.allReceivedRequests.push(receivedRequestsUserData_snapshot.docs[i].data());
-
-              nextNewlyReceivedEmission.push(receivedRequestsUserData_snapshot.docs[i].data());
-              
-            }
-
-            if (this.initializedAcceptedSubject === true)
-                this.newlyReceivedRequests.next(nextNewlyReceivedEmission);
+            receivedRequestsUserData_snapshot.forEach((user_data) => {
+              this.allReceivedRequests.push(user_data.data());
+            });
 
             /* emit the user's requests with the newly added requests */
             this.receivedRequestsSubject.next(this.allReceivedRequests);
@@ -147,7 +137,7 @@ export class RequestsService {
       let otherUser = otherUser_snapshot.docs[0].data();
 
       this.allSentRequests.push(otherUser);
-      this.newlySentRequests.next([otherUser]);
+      this.sentRequestsSubject.next(this.allSentRequests);
 
     });
 
@@ -332,9 +322,6 @@ export class RequestsService {
           
           let idx = this.allReceivedRequests.map((user) => user.email).findIndex((email) => email == otherUserEmail);
           if (idx !== -1) {
-            /* emit the user as a new friend */
-            this.newlyAcceptedFriend.next([this.allReceivedRequests[idx]]);
-
             /* removed the received request now that its been accepted, and emit the updated receivedRequestsSubject */
             this.allReceivedRequests.splice(idx, 1);
             this.receivedRequestsSubject.next(this.allReceivedRequests);
@@ -393,14 +380,16 @@ export class RequestsService {
         deleteDoc(docRef)
         .then(() => {
           /* removed the received request now that its been rejected, and emit the updated receivedRequestsSubject */
-          let idx = this.allReceivedRequests.map((user) => user.email).findIndex(otherUserEmail);
+          let idx = this.allReceivedRequests.map((user) => user.email).findIndex((email) => email == otherUserEmail);
           if (idx !== -1) {
             this.allReceivedRequests.splice(idx, 1);
             this.receivedRequestsSubject.next(this.allReceivedRequests);
           }
-        });
+        })
+        .catch((error: FirestoreError) => console.log("Error deleting request with message: " + error.message));
       }
-    });
+    })
+    .catch((error: FirestoreError) => console.log("Error getting request to delete with message: " + error.message));
   }
 
 }

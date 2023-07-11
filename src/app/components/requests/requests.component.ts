@@ -31,7 +31,6 @@ export class RequestsComponent implements OnInit, OnDestroy {
     /* subscribe to the user's that have sent the current user a friend request */
     this.receivedRequestsSubjectSubscription = this.requestsService.receivedRequestsSubject.subscribe((updatedReceivedRequests: UserData[]) => {
       this.receivedRequests = updatedReceivedRequests;
-      console.log("Updated change with received requests in requests component");
     });
 
   }

@@ -21,7 +21,6 @@ export class FriendsService {
 
   /* these are the fields that will be updated by snapshots */
   allFriendsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
-  newlyAddedFriends: Subject<UserData> = new Subject<UserData>();
 
   /* path to current user's 'myFriends' sub collection */
   currUserMyFriendsCollection: CollectionReference | null = null;
@@ -86,11 +85,7 @@ export class FriendsService {
             updatedFriendsEmails.push(myFriendsSnapshot.docs[i].data()['email']);
           }
 
-          if (updatedFriendsEmails.length === 0) {
-            /* The user has no friends so emit an empty array */
-            this.allFriendsSubject.next([]);
-          }
-          else {
+          if (updatedFriendsEmails.length > 0) {
             /* final query uses the emails of the user's friends and gets their actual user data */
             const friendsUserDataQuery = query(collection(this.firestore, "users").withConverter(userDataConverter), where("email", "in", updatedFriendsEmails));
             getDocs(friendsUserDataQuery)
@@ -104,7 +99,6 @@ export class FriendsService {
 
               /* emit the data for all the friends */
               this.allFriendsSubject.next(updatedFriendsUserData);
-              console.log("Successfully emitted updated friends list for current user");
             });
           }
           

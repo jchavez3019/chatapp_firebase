@@ -1,11 +1,13 @@
 import { Injectable, inject, OnDestroy, Query } from '@angular/core';
 import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, Unsubscribe } from '@angular/fire/auth';
-import { Firestore, collection, query, where, and, or, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, snapToData, QuerySnapshot, QueryFilterConstraint, FirestoreError, DocumentData, orderBy, startAt, endAt, limit } from '@angular/fire/firestore';
+import { Firestore, collection, query, where, and, or, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, snapToData, QuerySnapshot, QueryFilterConstraint, FirestoreError, DocumentData, orderBy, startAt, endAt, limit, QueryDocumentSnapshot } from '@angular/fire/firestore';
 import { Storage, UploadTask, uploadBytesResumable, ref, StorageReference, TaskEvent, uploadBytes, getDownloadURL } from '@angular/fire/storage';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, combineLatest, take, map, tap } from 'rxjs';
 
 /* firebase data interfaces */
 import { UserData, userDataConverter } from '../firestore.datatypes';
+import { RequestsService } from './requests.service';
+import { FriendsService } from './friends.service';
 
 const searchLimit = 20; // the number of users to return in a search
 
@@ -34,7 +36,7 @@ export class UserService implements OnDestroy {
   });
 
 
-  constructor() {
+  constructor(private requestsService: RequestsService, private friendsService: FriendsService) {
     /* userful for handling auth state chanegs */
     this.authStateSubscription = this.authState$.subscribe((aUser: User | null) => {
       // this.currentUser.next(aUser);
@@ -176,9 +178,18 @@ export class UserService implements OnDestroy {
     let searchResults: UserData[] = [];
     await getDocs(query(collection(this.firestore, 'users').withConverter(userDataConverter), orderBy("lowercaseName"), startAt(textSearch), endAt(textSearch + '\uf8ff'), limit(searchLimit) ))
     .then((searched_snapshot: QuerySnapshot<UserData>) => {
-      for (let i = 0; i < searched_snapshot.size; i++) {
-        searchResults.push(searched_snapshot.docs[i].data());
-      }
+      combineLatest([this.requestsService.receivedRequestsSubject, this.requestsService.sentRequestsSubject, this.friendsService.allFriendsSubject])
+      .pipe(
+        take(1),
+        map(([receivedRequests, sentRequests, allFriends]) => Array(...receivedRequests, ...sentRequests, ...allFriends).map((user_data: UserData) => user_data.email)),
+      )
+      .subscribe((nonSearchableUsers: string[]) => {
+        searched_snapshot.forEach((user_doc: QueryDocumentSnapshot<UserData>) => {
+          const userData = user_doc.data();
+          if (!nonSearchableUsers.includes(userData.email) && (this.auth.currentUser?.email !== userData.email))
+            searchResults.push(userData);
+        });
+      });
     })
     .catch((error: FirestoreError) => {
       console.log("Error searching for users with message: " + error.message);

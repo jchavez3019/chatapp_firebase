@@ -37,7 +37,6 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
         if (this.userIsSearching === false) {
           this.usersToAdd = this.suggestedUsers;
         }
-        console.log("received updated suggestions");
       }
     );
 
