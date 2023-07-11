@@ -2,10 +2,10 @@
   This service deals with friends, friend requests, friend suggestions, and searching for users to add as friends.
 */
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subject } from 'rxjs';
 
 /* firebase */
-import { Auth, User } from '@angular/fire/auth';
+import { Auth } from '@angular/fire/auth';
 import { Firestore, FirestoreError, where, collection, getDocs, query, DocumentData, QuerySnapshot, addDoc, DocumentReference, Unsubscribe, onSnapshot, doc, writeBatch, WriteBatch, CollectionReference } from '@angular/fire/firestore';
 
 /* templates */
@@ -21,6 +21,7 @@ export class FriendsService {
 
   /* these are the fields that will be updated by snapshots */
   allFriendsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
+  newlyAddedFriends: Subject<UserData> = new Subject<UserData>();
 
   /* path to current user's 'myFriends' sub collection */
   currUserMyFriendsCollection: CollectionReference | null = null;

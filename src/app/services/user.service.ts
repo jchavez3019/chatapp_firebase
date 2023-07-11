@@ -5,10 +5,9 @@ import { Storage, UploadTask, uploadBytesResumable, ref, StorageReference, TaskE
 import { BehaviorSubject } from 'rxjs';
 
 /* firebase data interfaces */
-import { UserData, UserStatus, requestDataConverter, userDataConverter, userStatusConverter } from '../firestore.datatypes';
-import { add_component_users } from '../components/add-friends/add-friends.component';
-import { start } from 'repl';
+import { UserData, userDataConverter } from '../firestore.datatypes';
 
+const searchLimit = 20; // the number of users to return in a search
 
 @Injectable({
   providedIn: 'root'
@@ -171,198 +170,11 @@ export class UserService implements OnDestroy {
     
   }
 
-
-  /* get absolutely all users */
-  async getAbsoluteAllUsers(): Promise<UserData[]> {
-
-    return new Promise((resolve, reject) => {
-      /* get a reference to the collection of users */
-      const userCollection = collection(this.firestore, 'users').withConverter(userDataConverter);
-
-      getDocs(userCollection)
-      .then((users_snapshot: QuerySnapshot<UserData>) => {
-        let allUsers: UserData[] = [];
-        for (let i = 0; i < users_snapshot.size; i++)
-          allUsers.push(users_snapshot.docs[i].data());
-
-        resolve(allUsers);
-      })
-      .catch((error: FirestoreError) => {
-        reject(error);
-      });
-    });
-
-  }
-
-  /* gets all users that is not the current user or a friend of the current user */
-  async getRelativeAllUsers(requestedUsers: add_component_users): Promise<Unsubscribe | undefined> {
-
-    let return_unsub: Unsubscribe | undefined = undefined;
-
-    /* query for the user's friends */
-    const friendsCollectionRef = collection(this.firestore, "friends");
-    const currUserFriendsQuery = query(friendsCollectionRef, where("email", "==", this.auth.currentUser?.email));
-
-    await getDocs(currUserFriendsQuery)
-    .then((async (snapshot: QuerySnapshot<DocumentData>) => {
-
-      /* grabs the friends document id */
-      let docId;
-
-      /* user has no friends, need to create an empty friends doc */
-      if (snapshot.empty) {
-
-        await addDoc(friendsCollectionRef, { email: this.auth.currentUser?.email })
-        .then((newDocRef: DocumentReference<DocumentData>) => {
-          docId = newDocRef.id;
-        });
-
-      }
-      else {
-        docId = snapshot.docs[0].id;
-      }
-
-
-      /* get the collection to the user's friends  */
-      const currFriendsCollectionRef = collection(this.firestore, `friends/${docId}/myFriends`);
-
-      /* subscribe to the current user's friends */
-      return_unsub = onSnapshot(currFriendsCollectionRef, {
-        next: (snapshot_friends: QuerySnapshot<DocumentData>) => {
-
-          function removeFriendsFromAllUsers (firestore: Firestore, userArr: UserData[]) : UserData[] {
-            snapshot_friends.docChanges().forEach((change) => {
-              if (change.type === "added") {
-                /* remove them from the reference */
-                const otherUserEmail = change.doc.data()['email'];
-
-                for (let i = 0; i < userArr.length; i++) {
-                  const currListUserEmail = userArr[i].email;
-
-                  if (currListUserEmail === otherUserEmail) {
-                    /* remove the user and move onto the next user */
-                    userArr.splice(i, 1);
-                    break;
-                  }
-                }
-              }
-              if (change.type === "modified") {
-                // do nothing, don't care about modified pages
-              }
-              if (change.type === "removed") {
-                /* add them to the reference */
-
-                /* query removed friend */
-                const getQuery = query<UserData>(collection(firestore, "users").withConverter(userDataConverter),
-                where("email", "==", change.doc.data()['email']));
-                
-                getDocs<UserData>(getQuery)
-                .then((snapshot: QuerySnapshot<UserData>) => {
-                  /* append the removed friend to the reference */
-                  userArr.push(snapshot.docs[0].data());
-                })
-                .catch((error: FirestoreError) => {
-                  console.log("Error appending removed friend to reference");
-                });
-              }
-            });
-
-            return userArr;
-          }
-
-          /*
-            If the reference has not been initialized, get the docs for all users.
-            We only do this once since it is not imperative that the current user is 
-            always updated about all the users. It would put a lot of work on Firebase,
-            especially as the user size grows.
-            NOTE: Would want to deprecate this function eventually and opt for a feature
-            that only grabs a capped limit of users that the current user would most likely know
-          */
-          if (!requestedUsers.initialized) {
-            /* declare the reference initialized */
-            requestedUsers.initialized = true;
-
-            /* get all the users except the current user */
-            const allUsersCollectionRef = collection(this.firestore, "users").withConverter(userDataConverter);
-            const getQuery = query(allUsersCollectionRef, where("email", "!=", this.auth.currentUser?.email));
-            
-            getDocs<UserData>(getQuery)
-            .then((snapshot_final: QuerySnapshot<UserData>) => {
-              /* grab all the filtered users */
-              let finalUserDocs: UserData[] = [];
-
-              for (let i = 0; i < snapshot_final.size; i++) {
-                finalUserDocs.push(snapshot_final.docs[i].data());
-              }
-
-              /* appends all other users to the reference's request */
-              // requestedUsers.users = finalUserDocs;
-
-              /* now query all the requests that the current user has sent or recieved and filter those out */
-              const requestQuery = query(collection(this.firestore, "requests").withConverter(requestDataConverter), or(where("sender","==", this.auth.currentUser?.email), where("receiver", "==", this.auth.currentUser?.email)));
-              getDocs(requestQuery)
-              .then((snapshot: QuerySnapshot<DocumentData>) => {
-
-                /* filter users that are friends */
-                removeFriendsFromAllUsers(this.firestore, finalUserDocs);
-
-                /* iterate through the receivers/senders */
-                for (let i = 0; i < snapshot.size; i++) {
-
-                  const receiver = snapshot.docs[i].data()['receiver'];
-                  const sender = snapshot.docs[i].data()['sender'];
-                  const otherUserEmail = (receiver === this.auth.currentUser?.email) ? sender : receiver;
-
-                  /* iterate through the users and remove entries that match the receiver/sender */
-                  for (let j = 0; j < finalUserDocs.length; j++) {
-                    const finalEmail = finalUserDocs[j].email;
-
-                    /* remove the entry and move on to the next receiver/sender */
-                    if (finalEmail === otherUserEmail) {
-                      finalUserDocs.splice(j, 1);
-                      break;
-                    }
-                  }
-                  
-                }
-
-                /* finally update the reference with the updated list */
-                requestedUsers.users = finalUserDocs;
-              });
-            })
-            .catch((error: FirestoreError) => {
-              console.log("Error in relative snapshot with name " + error.name + " and mesage " + error.message);
-            });
-
-          }  
-          else {
-
-            /* reference was initialized, now just add or remove users */
-            requestedUsers.users = removeFriendsFromAllUsers(this.firestore, requestedUsers.users);
-          }         
-
-          
-        },
-        
-        error: (error: FirestoreError) => {
-          console.log("Error calling relative snapshot");
-        }
-      })
-
-
-
-
-    }));
-
-    return return_unsub;
-
-  }
-
   /* instant search for add friend component */
   async instantSearch(textSearch: string) {
 
     let searchResults: UserData[] = [];
-    await getDocs(query(collection(this.firestore, 'users').withConverter(userDataConverter), orderBy("lowercaseName"), startAt(textSearch), endAt(textSearch + '\uf8ff'), limit(20) ))
+    await getDocs(query(collection(this.firestore, 'users').withConverter(userDataConverter), orderBy("lowercaseName"), startAt(textSearch), endAt(textSearch + '\uf8ff'), limit(searchLimit) ))
     .then((searched_snapshot: QuerySnapshot<UserData>) => {
       for (let i = 0; i < searched_snapshot.size; i++) {
         searchResults.push(searched_snapshot.docs[i].data());

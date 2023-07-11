@@ -1,9 +1,8 @@
 import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { UserService } from '../../services/user.service';
-import { Firestore, FirestoreError, QuerySnapshot, DocumentSnapshot } from '@angular/fire/firestore';
-import { Unsubscribe, User, UserProfile } from '@angular/fire/auth';
+import { Unsubscribe } from '@angular/fire/auth';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Observable, BehaviorSubject, Subscription, combineLatest, pipe, take } from 'rxjs';
+import { Subscription } from 'rxjs';
 
 /* firestore data types */
 import { UserData } from 'src/app/firestore.datatypes';
@@ -17,15 +16,11 @@ import { SuggestionsService } from 'src/app/services/suggestions.service';
 })
 export class AddFriendsComponent implements OnInit, OnDestroy {
 
-  // users: add_component_users = { users: [], initialized: false };
   private suggestedUsers: UserData[] = [];
   usersToAdd: UserData[] = [];
   private unsubUsers: Unsubscribe | undefined = undefined;
 
   private userIsSearching: Boolean = false;
-
-  // startAt = new Subject();
-  // endAt = new Subject();
 
   /* subscriptions */
   private suggestionsSubjectSubscription: Subscription | null = null;
@@ -87,7 +82,6 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
         /* if the user is trying to do a search, get the results and display them */
         this.userIsSearching = true;
         this.usersToAdd = await this.userService.instantSearch(q);
-
       }
       else {
         /* if the users is not trying to do a search, display the suggested users */
@@ -96,10 +90,4 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
       }
   }
 
-}
-
-/* allows pass by reference */
-export interface add_component_users {
-  users: UserData[];
-  initialized: boolean;
 }
