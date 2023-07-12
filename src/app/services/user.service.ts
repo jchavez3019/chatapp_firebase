@@ -2,12 +2,13 @@ import { Injectable, inject, OnDestroy, Query } from '@angular/core';
 import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, Unsubscribe } from '@angular/fire/auth';
 import { Firestore, collection, query, where, and, or, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, snapToData, QuerySnapshot, QueryFilterConstraint, FirestoreError, DocumentData, orderBy, startAt, endAt, limit, QueryDocumentSnapshot } from '@angular/fire/firestore';
 import { Storage, UploadTask, uploadBytesResumable, ref, StorageReference, TaskEvent, uploadBytes, getDownloadURL } from '@angular/fire/storage';
-import { BehaviorSubject, combineLatest, take, map, tap } from 'rxjs';
+import { BehaviorSubject, combineLatest, take, map, tap, filter } from 'rxjs';
 
 /* firebase data interfaces */
 import { UserData, userDataConverter } from '../firestore.datatypes';
 import { RequestsService } from './requests.service';
 import { FriendsService } from './friends.service';
+import { AuthService } from './auth.service';
 
 const searchLimit = 20; // the number of users to return in a search
 
@@ -36,12 +37,34 @@ export class UserService implements OnDestroy {
   });
 
 
-  constructor(private requestsService: RequestsService, private friendsService: FriendsService) {
-    /* userful for handling auth state chanegs */
-    this.authStateSubscription = this.authState$.subscribe((aUser: User | null) => {
-      // this.currentUser.next(aUser);
-    });
+  constructor(private authService: AuthService, private requestsService: RequestsService, private friendsService: FriendsService) {
 
+    /* observes until a user has been logged in, then perform initialization */
+    this.authService.authUserObservable.pipe(
+      filter((currUser: User | null, idx) => {
+        if (currUser)
+          return true;
+        else
+          return false;
+      }),
+      take(1)
+    )
+    .subscribe( async () => {
+      this.initializeAll();
+    });
+    
+   }
+
+   ngOnDestroy(): void {
+    // when manually subscribing to an observable remember to unsubscribe in ngOnDestroy
+    this.authStateSubscription.unsubscribe();
+    if (this.unsub != null) {
+      this.unsub();
+      this.unsub = null;
+    }
+  }
+
+  initializeAll() {
     /* get the user's uid */
     const userId = this.auth.currentUser?.uid;
 
@@ -63,12 +86,6 @@ export class UserService implements OnDestroy {
         console.log("Error in snapshot: " + error);
       }
     });
-   }
-
-   ngOnDestroy(): void {
-    // when manually subscribing to an observable remember to unsubscribe in ngOnDestroy
-    this.authStateSubscription.unsubscribe();
-    this.unsub();
   }
 
   async updateNickname(newname: string) {
@@ -196,6 +213,13 @@ export class UserService implements OnDestroy {
     });
 
     return searchResults;
+  }
+
+  unsubscribeAll() {
+    if (this.unsub != null) {
+      this.unsub();
+      this.unsub = null;
+    }
   }
 
 

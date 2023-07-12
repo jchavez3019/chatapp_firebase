@@ -34,6 +34,7 @@ export const userDataConverter: FirestoreDataConverter<UserData> = {
 
 /* interface */
 export interface UserStatus {
+    email: string;
     online: boolean;
 }
 

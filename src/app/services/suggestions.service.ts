@@ -1,11 +1,12 @@
 import { Injectable, inject } from '@angular/core';
-import { Subscription, combineLatest, skip, BehaviorSubject, map, tap } from 'rxjs';
+import { Subscription, combineLatest, skip, BehaviorSubject, map, tap, takeUntil, filter, take } from 'rxjs';
 import { FriendsService } from './friends.service';
 import { RequestsService } from './requests.service';
 import { UserData, RequestData, requestDataConverter, userDataConverter } from '../firestore.datatypes';
 
-import { Auth } from '@angular/fire/auth';
+import { Auth, User } from '@angular/fire/auth';
 import { Firestore, FirestoreError, collection, query, getDocs, QuerySnapshot, startAfter, orderBy, limit, or, where, DocumentData } from '@angular/fire/firestore';
+import { AuthService } from './auth.service';
 
 const newSuggestionsDesiredLength = 50;
 @Injectable({
@@ -23,7 +24,7 @@ export class SuggestionsService {
   suggestsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
 
 
-  constructor(private friendsService: FriendsService, private requestsService: RequestsService) {
+  constructor(private authService: AuthService, private friendsService: FriendsService, private requestsService: RequestsService) {
 
     /* create basic friends suggestions for the current user */
     this.initialBasicSuggestions();
@@ -39,68 +40,82 @@ export class SuggestionsService {
 
   async initialBasicSuggestions() {
 
-    let nonSuggestableUsers: string[] = [<string>this.auth.currentUser?.email];
-
-    /* populate 'nonSuggestableUsers' before subscribing to newly added friends/sentRequests/receivedRequests */
-    const friendsQuery = query(collection(this.firestore, 'friends'), where('email', '==', this.auth.currentUser?.email));
-    const allRequestsQuery = query(collection(this.firestore, 'requests').withConverter(requestDataConverter), or(where('receiver', '==', this.auth.currentUser?.email), where('sender', '==', this.auth.currentUser?.email)));
-
-    /* promise for getting all the current user's friends */
-    const prom1 = new Promise<void>((resolve, reject) => {
-      getDocs(friendsQuery).then((friendsQuery_snapshot: QuerySnapshot<DocumentData>) => {
-        if (friendsQuery_snapshot.size > 0) {
-          getDocs(collection(this.firestore,`friends/${friendsQuery_snapshot.docs[0].id}/myFriends`)).then(async (myFriends_snapshot: QuerySnapshot<DocumentData>) => {
-            myFriends_snapshot.forEach((user_doc) => { nonSuggestableUsers.push(user_doc.data()['email']) });
-            resolve();
-          })
-          .catch((error: FirestoreError) => reject(error));
-        }
-        resolve();
-      })
-      .catch((error: FirestoreError) => reject(error));
-    });
-
-    /* promise for getting all the current user's sent and received friend requests */
-    const prom2 = new Promise<void>((resolve, reject) => {
-      getDocs(allRequestsQuery).then( (requests_snapshot: QuerySnapshot<RequestData>) => {
-        requests_snapshot.forEach((request_doc) => { 
-          const email = request_doc.data()['sender'] === this.auth.currentUser?.email ? request_doc.data()['receiver'] : request_doc.data()['sender'];
-          nonSuggestableUsers.push(email); 
-        });
-        resolve();
-      })
-      .catch((error: FirestoreError) => reject(error));
-    });
-
-    await Promise.all([prom1, prom2])
-    .catch((error) => console.log("Error getting nonsuggestable users before recursion with message: " + error.message));
-
-    /* create the initial basic suggestions */
-    let newSuggestions: UserData[] = [];
-    this.recursiveQuery("", newSuggestionsDesiredLength, nonSuggestableUsers, newSuggestions);
-
-    /* subscribed to new friends/sentRequests/receivedRequests to delete entries from suggestions if necessary */
-    combineLatest([this.requestsService.sentRequestsSubject, this.requestsService.receivedRequestsSubject, this.friendsService.allFriendsSubject]).pipe(
-      skip(1),
-      map(([sentRequests, receivedRequests, friends], i) => {
-        /* returns the emails from all 3 observables into a single array */
-        return Array(...sentRequests.map((user_data) => user_data.email), ...receivedRequests.map((user_data) => user_data.email), ...friends.map((user_data) => user_data.email));
+    /* observes until a user has been logged in, then perform initialization */
+    this.authService.authUserObservable.pipe(
+      filter((currUser: User | null, idx) => {
+        if (currUser)
+          return true;
+        else
+          return false;
       }),
+      take(1)
     )
-    .subscribe((usersNotToSuggest: string[]) => {
+    .subscribe( async () => {
+      let nonSuggestableUsers: string[] = [<string>this.auth.currentUser?.email];
 
-      /* append the new user to 'nonSuggestableUsers' */
-      // usersNotToSuggest.forEach((email) => { nonSuggestableUsers.push(email); });
-      usersNotToSuggest.forEach((otherEmail) => {
-        const idx = this.latestSuggestions.map((user) => user.email).findIndex((email) => email == otherEmail);
-        if (idx != -1) {
-          this.latestSuggestions.splice(idx, 1);
-        }
+      /* populate 'nonSuggestableUsers' before subscribing to newly added friends/sentRequests/receivedRequests */
+      const friendsQuery = query(collection(this.firestore, 'friends'), where('email', '==', this.auth.currentUser?.email));
+      const allRequestsQuery = query(collection(this.firestore, 'requests').withConverter(requestDataConverter), or(where('receiver', '==', this.auth.currentUser?.email), where('sender', '==', this.auth.currentUser?.email)));
+  
+      /* promise for getting all the current user's friends */
+      const prom1 = new Promise<void>((resolve, reject) => {
+        getDocs(friendsQuery).then((friendsQuery_snapshot: QuerySnapshot<DocumentData>) => {
+          if (friendsQuery_snapshot.size > 0) {
+            getDocs(collection(this.firestore,`friends/${friendsQuery_snapshot.docs[0].id}/myFriends`)).then(async (myFriends_snapshot: QuerySnapshot<DocumentData>) => {
+              myFriends_snapshot.forEach((user_doc) => { nonSuggestableUsers.push(user_doc.data()['email']) });
+              resolve();
+            })
+            .catch((error: FirestoreError) => reject(error));
+          }
+          resolve();
+        })
+        .catch((error: FirestoreError) => reject(error));
       });
-
-      this.suggestsSubject.next(this.latestSuggestions);
-      
+  
+      /* promise for getting all the current user's sent and received friend requests */
+      const prom2 = new Promise<void>((resolve, reject) => {
+        getDocs(allRequestsQuery).then( (requests_snapshot: QuerySnapshot<RequestData>) => {
+          requests_snapshot.forEach((request_doc) => { 
+            const email = request_doc.data()['sender'] === this.auth.currentUser?.email ? request_doc.data()['receiver'] : request_doc.data()['sender'];
+            nonSuggestableUsers.push(email); 
+          });
+          resolve();
+        })
+        .catch((error: FirestoreError) => reject(error));
+      });
+  
+      await Promise.all([prom1, prom2])
+      .catch((error) => console.log("Error getting nonsuggestable users before recursion with message: " + error.message));
+  
+      /* create the initial basic suggestions */
+      let newSuggestions: UserData[] = [];
+      this.recursiveQuery("", newSuggestionsDesiredLength, nonSuggestableUsers, newSuggestions);
+  
+      /* subscribed to new friends/sentRequests/receivedRequests to delete entries from suggestions if necessary */
+      combineLatest([this.requestsService.sentRequestsSubject, this.requestsService.receivedRequestsSubject, this.friendsService.allFriendsSubject]).pipe(
+        skip(1),
+        map(([sentRequests, receivedRequests, friends], i) => {
+          /* returns the emails from all 3 observables into a single array */
+          return Array(...sentRequests.map((user_data) => user_data.email), ...receivedRequests.map((user_data) => user_data.email), ...friends.map((user_data) => user_data.email));
+        }),
+      )
+      .subscribe((usersNotToSuggest: string[]) => {
+  
+        /* append the new user to 'nonSuggestableUsers' */
+        // usersNotToSuggest.forEach((email) => { nonSuggestableUsers.push(email); });
+        usersNotToSuggest.forEach((otherEmail) => {
+          const idx = this.latestSuggestions.map((user) => user.email).findIndex((email) => email == otherEmail);
+          if (idx != -1) {
+            this.latestSuggestions.splice(idx, 1);
+          }
+        });
+  
+        this.suggestsSubject.next(this.latestSuggestions);
+        
+      });
     });
+
+
   }
 
   /* helper function for building up suggestions */
@@ -159,7 +174,13 @@ export class SuggestionsService {
     })
   }
 
-
+  unsubscribeAll() {
+    if (this.combineSubscription != null) {
+      this.combineSubscription.unsubscribe();
+      this.combineSubscription = null;
+    }
+      
+  }
 
   
 }

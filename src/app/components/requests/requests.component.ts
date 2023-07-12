@@ -14,12 +14,6 @@ import { Subscription } from 'rxjs';
 })
 export class RequestsComponent implements OnInit, OnDestroy {
 
-  /* unsubscribes to snapshot that listens for friend requests */
-  private unsubMyRequests: any;
-
-  /* all the friend requests for the current user */
-  // requests: req = {requests: []};
-
   receivedRequests: UserData[] = [];
 
   private receivedRequestsSubjectSubscription: Subscription | null = null;
@@ -36,8 +30,6 @@ export class RequestsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    /* unsubscribe to requests snapshot */
-    this.unsubMyRequests();
 
     /* unsubscribe to receivedRequestsSubject */
     if (this.receivedRequestsSubjectSubscription != null) {

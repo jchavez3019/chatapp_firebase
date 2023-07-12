@@ -24,8 +24,6 @@ export class RequestsService {
   receivedRequestsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
   sentRequestsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
 
-  private initializedAcceptedSubject = false;
-
   /* snapshot subscriptions that must be unsubscribed to */
   private receivedRequestsOnsnapshotUnsubscribe: Unsubscribe | null = null;
 
@@ -41,8 +39,11 @@ export class RequestsService {
 
   ngOnDestroy() {
     /* unsubscribe to snapshots */
-    if (this.receivedRequestsOnsnapshotUnsubscribe != null)
+    if (this.receivedRequestsOnsnapshotUnsubscribe != null) {
       this.receivedRequestsOnsnapshotUnsubscribe();
+      this.receivedRequestsOnsnapshotUnsubscribe = null;
+    }
+      
 
   }
 
@@ -92,8 +93,6 @@ export class RequestsService {
 
           });
         }
-
-        this.initializedAcceptedSubject = true;
         
       }
     })
@@ -391,5 +390,14 @@ export class RequestsService {
     })
     .catch((error: FirestoreError) => console.log("Error getting request to delete with message: " + error.message));
   }
+
+    /* unsubcribes to any and all subjects/snapshots */
+    unsubcribeAll() {
+      if (this.receivedRequestsOnsnapshotUnsubscribe != null) {
+        this.receivedRequestsOnsnapshotUnsubscribe();
+        this.receivedRequestsOnsnapshotUnsubscribe = null;
+      }
+      
+    }
 
 }

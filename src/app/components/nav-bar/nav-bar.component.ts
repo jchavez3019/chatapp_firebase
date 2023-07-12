@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { AuthService } from 'src/app/services/auth.service';
 
 @Component({
@@ -8,17 +9,20 @@ import { AuthService } from 'src/app/services/auth.service';
 })
 export class NavBarComponent implements OnInit {
 
-  constructor(private auth: AuthService) { }
+  constructor(private router: Router, private auth: AuthService) { }
 
   ngOnInit(): void {
   }
 
   logoutButton() {
     this.auth.logout()
-    .catch((error) => {
-      const error_msg = error.message;
-      console.log(error_msg);
+    .then(()=> {
+      /* once the service takes care of ending background tasks, can navigate back to login*/
+      this.router.navigate(['login']);
     })
+    .catch((error) => {
+      console.log("Error logging out with message: \n" + error.message);
+    });
   }
 
 }
