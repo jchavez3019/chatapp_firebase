@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import { AuthService } from '../../services/auth.service';
 import { FormControl, Validators } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -34,6 +34,12 @@ export class SignupPageComponent implements OnInit {
   constructor(private auth: AuthService, private snackBar: MatSnackBar) { }
 
   ngOnInit(): void {
+  }
+
+  @HostListener('document:keypress', ['$event'])
+  handleKeyboardEvent(event: KeyboardEvent) { 
+    if (event.key === "Enter")
+      this.createAccountButton();
   }
 
   /*

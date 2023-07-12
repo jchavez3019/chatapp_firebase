@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormControl, Validators } from '@angular/forms';
 import { AuthService } from 'src/app/services/auth.service';
@@ -36,6 +36,12 @@ export class LoginPageComponent implements OnInit {
   constructor(private router: Router, private auth: AuthService, private snackBar: MatSnackBar) { }
 
   ngOnInit(): void {
+  }
+
+  @HostListener('document:keypress', ['$event'])
+  handleKeyboardEvent(event: KeyboardEvent) { 
+    if (event.key === "Enter")
+      this.loginButton();
   }
 
   /*
