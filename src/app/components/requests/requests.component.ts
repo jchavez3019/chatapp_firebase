@@ -18,7 +18,7 @@ export class RequestsComponent implements OnInit, OnDestroy {
 
   private receivedRequestsSubjectSubscription: Subscription | null = null;
 
-  constructor(private requestsService: RequestsService, private userServer: UserService, private snackBar: MatSnackBar) { }
+  constructor(private requestsService: RequestsService, private snackBar: MatSnackBar) { }
 
   ngOnInit(): void {
 

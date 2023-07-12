@@ -1,6 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from 'src/app/services/auth.service';
+import { FriendsService } from 'src/app/services/friends.service';
+import { RequestsService } from 'src/app/services/requests.service';
+import { SuggestionsService } from 'src/app/services/suggestions.service';
+import { UserService } from 'src/app/services/user.service';
 
 @Component({
   selector: 'app-nav-bar',
@@ -9,12 +13,24 @@ import { AuthService } from 'src/app/services/auth.service';
 })
 export class NavBarComponent implements OnInit {
 
-  constructor(private router: Router, private auth: AuthService) { }
+  constructor(private router: Router, 
+    private auth: AuthService,
+    private requestsService: RequestsService,
+    private userService: UserService,
+    private friendsService: FriendsService,
+    private suggestionsService: SuggestionsService) { }
 
   ngOnInit(): void {
   }
 
   logoutButton() {
+
+    /* need to unsubscribe from all subjects and snapshots */
+    this.requestsService.unsubcribeAll();
+    this.userService.unsubscribeAll();
+    this.friendsService.unsubscribeAll();
+    this.suggestionsService.unsubscribeAll();
+
     this.auth.logout()
     .then(()=> {
       /* once the service takes care of ending background tasks, can navigate back to login*/

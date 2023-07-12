@@ -5,12 +5,6 @@ import { Router } from '@angular/router';
 
 /* firebase data types */
 import { UserData, UserStatus, userDataConverter, userStatusConverter } from '../firestore.datatypes';
-
-/* services */
-import { RequestsService } from './requests.service';
-import { UserService } from './user.service';
-import { FriendsService } from './friends.service';
-import { SuggestionsService } from './suggestions.service';
 import { BehaviorSubject, Observable } from 'rxjs';
 
 @Injectable({
@@ -29,27 +23,23 @@ export class AuthService implements OnDestroy {
     enforcing a read-only behavior on the stream to others. 
   */
   /* private subjects */
-  private authUserSubject: BehaviorSubject<User | null> = new BehaviorSubject<User | null>(null);
-
-  /* public observables */
-  authUserObservable: Observable<User | null> = this.authUserSubject.asObservable();
+  authUserSubject: BehaviorSubject<User | null> = new BehaviorSubject<User | null>(null);
 
   private firestore: Firestore = inject(Firestore);
+  private currUserCredential: User | null = null;
 
-  constructor(private router: Router,
-    private requestsService: RequestsService, 
-    private userService: UserService, 
-    private friendsService: FriendsService,
-    private suggestionsService: SuggestionsService) {
+  constructor(private router: Router) {
 
 
     /* observes the state of the current user */
     onAuthStateChanged(this.auth, (credential: User | null) => {
       if (credential) {
+        this.currUserCredential = credential;
         this.authUserSubject.next(credential);
-        console.log("User has logged in");
+        console.log(`User has logged in with displayName ${credential.displayName} and email ${credential.email}`);
       }
       else {
+        this.currUserCredential = null;
         this.authUserSubject.next(null);
         console.log("User has logged out and is now null");
       }
@@ -153,11 +143,9 @@ export class AuthService implements OnDestroy {
       await this.setStatus("offline")
       .catch((error) => reject(error));
 
-      /* need to unsubscribe from all subjects and snapshots */
-      this.requestsService.unsubcribeAll();
-      this.userService.unsubscribeAll();
-      this.friendsService.unsubscribeAll();
-      this.suggestionsService.unsubscribeAll();
+      /* logout the user */
+      await signOut(this.auth)
+      .catch((error) => reject(error));
 
       resolve();
 
@@ -218,14 +206,14 @@ export class AuthService implements OnDestroy {
       else
         reject("Invalid status; Status should either be 'online' or 'offline'");
 
-      const userStatusQuery = query(collection(this.firestore, "status").withConverter(userStatusConverter), where("email","==", this.auth.currentUser?.email));
+      const userStatusQuery = query(collection(this.firestore, "status").withConverter(userStatusConverter), where("email","==", this.currUserCredential?.email));
       getDocs(userStatusQuery)
       .then((userStatus_snapshot: QuerySnapshot<UserStatus>) => {
 
         if (userStatus_snapshot.size == 0) {
           /* user status document does not exist, it must be created */
           addDoc(collection(this.firestore, "status").withConverter(userStatusConverter), {
-            "email": <string>this.auth.currentUser?.email,
+            "email": this.currUserCredential?.email,
             "online": isOnline
           })
           .then(() => {

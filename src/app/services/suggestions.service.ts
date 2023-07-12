@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Subscription, combineLatest, skip, BehaviorSubject, map, tap, takeUntil, filter, take } from 'rxjs';
+import { Subscription, combineLatest, skip, BehaviorSubject, map, tap, takeUntil, filter, take, Observable } from 'rxjs';
 import { FriendsService } from './friends.service';
 import { RequestsService } from './requests.service';
 import { UserData, RequestData, requestDataConverter, userDataConverter } from '../firestore.datatypes';
@@ -23,8 +23,14 @@ export class SuggestionsService {
 
   suggestsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
 
+  private currentUserCredential: User | null = null;
 
   constructor(private authService: AuthService, private friendsService: FriendsService, private requestsService: RequestsService) {
+
+    /* NOTE: remember to unsubscribe to this */
+    this.authService.authUserSubject.subscribe((credential) => {
+      this.currentUserCredential = credential;
+    });
 
     /* create basic friends suggestions for the current user */
     this.initialBasicSuggestions();
@@ -40,22 +46,13 @@ export class SuggestionsService {
 
   async initialBasicSuggestions() {
 
-    /* observes until a user has been logged in, then perform initialization */
-    this.authService.authUserObservable.pipe(
-      filter((currUser: User | null, idx) => {
-        if (currUser)
-          return true;
-        else
-          return false;
-      }),
-      take(1)
-    )
-    .subscribe( async () => {
-      let nonSuggestableUsers: string[] = [<string>this.auth.currentUser?.email];
+      console.log("Current user from suggestionsService is of type: " + typeof(this.currentUserCredential) + " with email: " + this.currentUserCredential?.email);
+
+      let nonSuggestableUsers: string[] = [<string>this.currentUserCredential?.email];
 
       /* populate 'nonSuggestableUsers' before subscribing to newly added friends/sentRequests/receivedRequests */
-      const friendsQuery = query(collection(this.firestore, 'friends'), where('email', '==', this.auth.currentUser?.email));
-      const allRequestsQuery = query(collection(this.firestore, 'requests').withConverter(requestDataConverter), or(where('receiver', '==', this.auth.currentUser?.email), where('sender', '==', this.auth.currentUser?.email)));
+      const friendsQuery = query(collection(this.firestore, 'friends'), where('email', '==', this.currentUserCredential?.email));
+      const allRequestsQuery = query(collection(this.firestore, 'requests').withConverter(requestDataConverter), or(where('receiver', '==', this.currentUserCredential?.email), where('sender', '==', this.currentUserCredential?.email)));
   
       /* promise for getting all the current user's friends */
       const prom1 = new Promise<void>((resolve, reject) => {
@@ -76,7 +73,7 @@ export class SuggestionsService {
       const prom2 = new Promise<void>((resolve, reject) => {
         getDocs(allRequestsQuery).then( (requests_snapshot: QuerySnapshot<RequestData>) => {
           requests_snapshot.forEach((request_doc) => { 
-            const email = request_doc.data()['sender'] === this.auth.currentUser?.email ? request_doc.data()['receiver'] : request_doc.data()['sender'];
+            const email = request_doc.data()['sender'] === this.currentUserCredential?.email ? request_doc.data()['receiver'] : request_doc.data()['sender'];
             nonSuggestableUsers.push(email); 
           });
           resolve();
@@ -93,11 +90,12 @@ export class SuggestionsService {
   
       /* subscribed to new friends/sentRequests/receivedRequests to delete entries from suggestions if necessary */
       combineLatest([this.requestsService.sentRequestsSubject, this.requestsService.receivedRequestsSubject, this.friendsService.allFriendsSubject]).pipe(
-        skip(1),
+        // skip(1),
         map(([sentRequests, receivedRequests, friends], i) => {
           /* returns the emails from all 3 observables into a single array */
           return Array(...sentRequests.map((user_data) => user_data.email), ...receivedRequests.map((user_data) => user_data.email), ...friends.map((user_data) => user_data.email));
         }),
+        tap((usersNotToSuggest: string[]) => console.log("suggestions curated nonsuggestableUsers:\n" + usersNotToSuggest)),
       )
       .subscribe((usersNotToSuggest: string[]) => {
   
@@ -113,8 +111,6 @@ export class SuggestionsService {
         this.suggestsSubject.next(this.latestSuggestions);
         
       });
-    });
-
 
   }
 

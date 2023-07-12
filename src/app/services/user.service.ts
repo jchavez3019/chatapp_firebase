@@ -23,6 +23,8 @@ export class UserService implements OnDestroy {
 
   private storage: Storage = inject(Storage);
 
+  private currUserCredential: User | null = null;
+
   authState$ = authState(this.auth);
   authStateSubscription: any;
 
@@ -39,20 +41,12 @@ export class UserService implements OnDestroy {
 
   constructor(private authService: AuthService, private requestsService: RequestsService, private friendsService: FriendsService) {
 
-    /* observes until a user has been logged in, then perform initialization */
-    this.authService.authUserObservable.pipe(
-      filter((currUser: User | null, idx) => {
-        if (currUser)
-          return true;
-        else
-          return false;
-      }),
-      take(1)
-    )
-    .subscribe( async () => {
-      this.initializeAll();
+    /* NOTE: remember to unsubscribe to this */
+    this.authService.authUserSubject.subscribe((credential) => {
+      this.currUserCredential = credential;
     });
-    
+
+    this.initializeAll();    
    }
 
    ngOnDestroy(): void {
@@ -203,7 +197,7 @@ export class UserService implements OnDestroy {
       .subscribe((nonSearchableUsers: string[]) => {
         searched_snapshot.forEach((user_doc: QueryDocumentSnapshot<UserData>) => {
           const userData = user_doc.data();
-          if (!nonSearchableUsers.includes(userData.email) && (this.auth.currentUser?.email !== userData.email))
+          if (!nonSearchableUsers.includes(userData.email) && (this.currUserCredential?.email !== userData.email))
             searchResults.push(userData);
         });
       });
