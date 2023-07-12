@@ -31,7 +31,7 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
 
     /* grabs suggested users */
-    this.suggestionsSubjectSubscription = this.suggestionsService.suggestsSubject.subscribe(
+    this.suggestionsSubjectSubscription = this.suggestionsService.suggestsObservable.subscribe(
       (updatedSuggestions: UserData[]) => {
         this.suggestedUsers = updatedSuggestions;
         if (this.userIsSearching === false) {

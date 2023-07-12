@@ -21,8 +21,13 @@ export class RequestsService {
   private allReceivedRequests: UserData[] = [];
   private allSentRequests: UserData[] = [];
 
-  receivedRequestsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
-  sentRequestsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
+  /* private subjects */
+  private receivedRequestsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
+  private sentRequestsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
+
+  /* public subjects */
+  receivedRequestsObservable: Observable<UserData[]> = this.receivedRequestsSubject.asObservable();
+  sentRequestsObservable: Observable<UserData[]> = this.sentRequestsSubject.asObservable();
 
   /* subcribed observables */
   private currUserCredential: User | null = null;
@@ -33,7 +38,7 @@ export class RequestsService {
   constructor(private authService: AuthService, private friendsService: FriendsService) {
 
       /* NOTE: remember to unsubcribe to this */
-      this.authService.authUserSubject.subscribe((credential) => {
+      this.authService.authUsersObservable.subscribe((credential) => {
         this.currUserCredential = credential;
       });
 

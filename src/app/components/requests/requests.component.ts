@@ -23,7 +23,7 @@ export class RequestsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
 
     /* subscribe to the user's that have sent the current user a friend request */
-    this.receivedRequestsSubjectSubscription = this.requestsService.receivedRequestsSubject.subscribe((updatedReceivedRequests: UserData[]) => {
+    this.receivedRequestsSubjectSubscription = this.requestsService.receivedRequestsObservable.subscribe((updatedReceivedRequests: UserData[]) => {
       this.receivedRequests = updatedReceivedRequests;
     });
 

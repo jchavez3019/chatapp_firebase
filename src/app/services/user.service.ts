@@ -42,7 +42,7 @@ export class UserService implements OnDestroy {
   constructor(private authService: AuthService, private requestsService: RequestsService, private friendsService: FriendsService) {
 
     /* NOTE: remember to unsubscribe to this */
-    this.authService.authUserSubject.subscribe((credential) => {
+    this.authService.authUsersObservable.subscribe((credential) => {
       this.currUserCredential = credential;
     });
 
@@ -189,7 +189,7 @@ export class UserService implements OnDestroy {
     let searchResults: UserData[] = [];
     await getDocs(query(collection(this.firestore, 'users').withConverter(userDataConverter), orderBy("lowercaseName"), startAt(textSearch), endAt(textSearch + '\uf8ff'), limit(searchLimit) ))
     .then((searched_snapshot: QuerySnapshot<UserData>) => {
-      combineLatest([this.requestsService.receivedRequestsSubject, this.requestsService.sentRequestsSubject, this.friendsService.allFriendsSubject])
+      combineLatest([this.requestsService.receivedRequestsObservable, this.requestsService.sentRequestsObservable, this.friendsService.allFriendsObservable])
       .pipe(
         take(1),
         map(([receivedRequests, sentRequests, allFriends]) => Array(...receivedRequests, ...sentRequests, ...allFriends).map((user_data: UserData) => user_data.email)),

@@ -20,7 +20,11 @@ export class FriendsService {
   private auth: Auth = inject(Auth);
   private firestore: Firestore = inject(Firestore);
 
-  allFriendsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
+  /* private subjects */
+  private allFriendsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
+
+  /* public observables */
+  allFriendsObservable: Observable<UserData[]> = this.allFriendsSubject.asObservable();
 
   /* subcribes observables */
   private currUserCredential: User | null = null;
@@ -35,7 +39,7 @@ export class FriendsService {
   constructor(private authService: AuthService) {
 
     /* NOTE: remember to unsubcribe */
-    this.authService.authUserSubject.subscribe((credential: User | null) => {
+    this.authService.authUsersObservable.subscribe((credential: User | null) => {
       this.currUserCredential = credential;
     });
 

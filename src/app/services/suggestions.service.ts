@@ -21,14 +21,18 @@ export class SuggestionsService {
 
   private latestSuggestions: UserData[] = [];
 
-  suggestsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
+  /* private subjects */
+  private suggestsSubject: BehaviorSubject<UserData[]> = new BehaviorSubject<UserData[]>([]);
+
+  /* public observables */
+  suggestsObservable: Observable<UserData[]> = this.suggestsSubject.asObservable();
 
   private currentUserCredential: User | null = null;
 
   constructor(private authService: AuthService, private friendsService: FriendsService, private requestsService: RequestsService) {
 
     /* NOTE: remember to unsubscribe to this */
-    this.authService.authUserSubject.subscribe((credential) => {
+    this.authService.authUsersObservable.subscribe((credential) => {
       this.currentUserCredential = credential;
     });
 
@@ -89,8 +93,8 @@ export class SuggestionsService {
       this.recursiveQuery("", newSuggestionsDesiredLength, nonSuggestableUsers, newSuggestions);
   
       /* subscribed to new friends/sentRequests/receivedRequests to delete entries from suggestions if necessary */
-      combineLatest([this.requestsService.sentRequestsSubject, this.requestsService.receivedRequestsSubject, this.friendsService.allFriendsSubject]).pipe(
-        // skip(1),
+      combineLatest([this.requestsService.sentRequestsObservable, this.requestsService.receivedRequestsObservable, this.friendsService.allFriendsObservable]).pipe(
+        skip(1),
         map(([sentRequests, receivedRequests, friends], i) => {
           /* returns the emails from all 3 observables into a single array */
           return Array(...sentRequests.map((user_data) => user_data.email), ...receivedRequests.map((user_data) => user_data.email), ...friends.map((user_data) => user_data.email));

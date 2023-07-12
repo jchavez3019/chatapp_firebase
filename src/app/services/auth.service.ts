@@ -5,7 +5,7 @@ import { Router } from '@angular/router';
 
 /* firebase data types */
 import { UserData, UserStatus, userDataConverter, userStatusConverter } from '../firestore.datatypes';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, Subject } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -23,7 +23,10 @@ export class AuthService implements OnDestroy {
     enforcing a read-only behavior on the stream to others. 
   */
   /* private subjects */
-  authUserSubject: BehaviorSubject<User | null> = new BehaviorSubject<User | null>(null);
+  private authUserSubject: BehaviorSubject<User | null> = new BehaviorSubject<User | null>(null);
+
+  /* public observables */
+  authUsersObservable: Observable<User | null> = this.authUserSubject.asObservable();
 
   private firestore: Firestore = inject(Firestore);
   private currUserCredential: User | null = null;

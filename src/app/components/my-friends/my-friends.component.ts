@@ -21,7 +21,7 @@ export class MyFriendsComponent implements OnInit {
   ngOnInit(): void {
 
     /* subscribe to received updated friend's list for the current user */
-    this.allFriendsSubjectSubscription = this.friendsService.allFriendsSubject.subscribe((updatedFriends: UserData[]) => {
+    this.allFriendsSubjectSubscription = this.friendsService.allFriendsObservable.subscribe((updatedFriends: UserData[]) => {
       this.userFriends = updatedFriends;
     });
   }
