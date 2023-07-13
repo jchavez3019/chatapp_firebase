@@ -1,10 +1,10 @@
 import { Injectable, inject } from '@angular/core';
-import { Subscription, combineLatest, skip, BehaviorSubject, map, tap, takeUntil, filter, take, Observable } from 'rxjs';
+import { Subscription, combineLatest, skip, BehaviorSubject, map, tap, takeUntil, filter, take, Observable, Unsubscribable } from 'rxjs';
 import { FriendsService } from './friends.service';
 import { RequestsService } from './requests.service';
 import { UserData, RequestData, requestDataConverter, userDataConverter } from '../firestore.datatypes';
 
-import { Auth, User } from '@angular/fire/auth';
+import { Auth, Unsubscribe, User, onAuthStateChanged } from '@angular/fire/auth';
 import { Firestore, FirestoreError, collection, query, getDocs, QuerySnapshot, startAfter, orderBy, limit, or, where, DocumentData } from '@angular/fire/firestore';
 import { AuthService } from './auth.service';
 
@@ -17,8 +17,6 @@ export class SuggestionsService {
   private auth: Auth = inject(Auth);
   private firestore: Firestore = inject(Firestore);
 
-  private combineSubscription: Subscription | null = null;
-
   private latestSuggestions: UserData[] = [];
 
   /* private subjects */
@@ -27,36 +25,46 @@ export class SuggestionsService {
   /* public observables */
   suggestsObservable: Observable<UserData[]> = this.suggestsSubject.asObservable();
 
-  private currentUserCredential: User | null = null;
+  /* subscriptions */
+  private combineSubscription: Subscription | null = null;
+  private onAuthStateChangedUnsubscribe: Unsubscribe | null = null;
 
   constructor(private authService: AuthService, private friendsService: FriendsService, private requestsService: RequestsService) {
 
-    /* NOTE: remember to unsubscribe to this */
-    this.authService.authUsersObservable.subscribe((credential) => {
-      this.currentUserCredential = credential;
+    this.onAuthStateChangedUnsubscribe = onAuthStateChanged(this.auth, (credential: User | null) => {
+      if (credential) {
+        /* perform initializations */
+        this.initialBasicSuggestions();
+      } 
     });
-
-    /* create basic friends suggestions for the current user */
-    this.initialBasicSuggestions();
+    
   
    }
 
   ngOnDestroy() {
 
     /* unsubscribe to all subjects */
-    if (this.combineSubscription != null)
+    if (this.combineSubscription != null) {
       this.combineSubscription.unsubscribe();
+      this.combineSubscription = null;
+    }
+
+    if (this.onAuthStateChangedUnsubscribe != null) {
+      this.onAuthStateChangedUnsubscribe();
+      this.onAuthStateChangedUnsubscribe = null;
+    }
+      
+
+    
   }
 
   async initialBasicSuggestions() {
 
-      console.log("Current user from suggestionsService is of type: " + typeof(this.currentUserCredential) + " with email: " + this.currentUserCredential?.email);
-
-      let nonSuggestableUsers: string[] = [<string>this.currentUserCredential?.email];
+      let nonSuggestableUsers: string[] = [<string>this.auth.currentUser?.email];
 
       /* populate 'nonSuggestableUsers' before subscribing to newly added friends/sentRequests/receivedRequests */
-      const friendsQuery = query(collection(this.firestore, 'friends'), where('email', '==', this.currentUserCredential?.email));
-      const allRequestsQuery = query(collection(this.firestore, 'requests').withConverter(requestDataConverter), or(where('receiver', '==', this.currentUserCredential?.email), where('sender', '==', this.currentUserCredential?.email)));
+      const friendsQuery = query(collection(this.firestore, 'friends'), where('email', '==', this.auth.currentUser?.email));
+      const allRequestsQuery = query(collection(this.firestore, 'requests').withConverter(requestDataConverter), or(where('receiver', '==', this.auth.currentUser?.email), where('sender', '==', this.auth.currentUser?.email)));
   
       /* promise for getting all the current user's friends */
       const prom1 = new Promise<void>((resolve, reject) => {
@@ -77,7 +85,7 @@ export class SuggestionsService {
       const prom2 = new Promise<void>((resolve, reject) => {
         getDocs(allRequestsQuery).then( (requests_snapshot: QuerySnapshot<RequestData>) => {
           requests_snapshot.forEach((request_doc) => { 
-            const email = request_doc.data()['sender'] === this.currentUserCredential?.email ? request_doc.data()['receiver'] : request_doc.data()['sender'];
+            const email = request_doc.data()['sender'] === this.auth.currentUser?.email ? request_doc.data()['receiver'] : request_doc.data()['sender'];
             nonSuggestableUsers.push(email); 
           });
           resolve();
@@ -115,7 +123,6 @@ export class SuggestionsService {
         this.suggestsSubject.next(this.latestSuggestions);
         
       });
-
   }
 
   /* helper function for building up suggestions */

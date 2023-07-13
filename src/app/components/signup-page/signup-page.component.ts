@@ -31,7 +31,7 @@ export class SignupPageComponent implements OnInit {
     Validators.required
   ])
 
-  constructor(private auth: AuthService, private snackBar: MatSnackBar) { }
+  constructor(private authService: AuthService, private snackBar: MatSnackBar) { }
 
   ngOnInit(): void {
   }
@@ -48,7 +48,7 @@ export class SignupPageComponent implements OnInit {
   */
   createAccountButton() {
     /* await result from firestore */
-    this.auth.signUp(this.usercreds)
+    this.authService.signUp(this.usercreds)
     .catch((error) => {
       const error_msg = error.message;
       console.log("Error in createAccountButton with message: " + error_msg);

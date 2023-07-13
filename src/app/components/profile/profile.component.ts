@@ -1,4 +1,6 @@
 import { Component, OnInit } from '@angular/core';
+import { Subscribable, Subscription } from 'rxjs';
+import { UserData } from 'src/app/firestore.datatypes';
 import { UserService } from 'src/app/services/user.service';
 
 @Component({
@@ -8,18 +10,46 @@ import { UserService } from 'src/app/services/user.service';
 })
 export class ProfileComponent implements OnInit {
 
-  user: any;
+  user: UserData = {
+    displayName: "",
+    lowercaseName: "",
+    email: "",
+    photoURL: "",
+    uid: ""
+  };
   nickNameEdit: boolean = false;
   newNickname: string = "";
   selectedFiles: FileList | undefined;
 
+  /* subscriptions */
+  private currentUserSubscription: Subscription | null = null;
+
   constructor(private userService: UserService) {
-    this.userService.currentUser.subscribe((user) => {
-      this.user = user;
+    this.currentUserSubscription = this.userService.currentUser.subscribe((user: UserData | undefined) => {
+      if (user != undefined)
+        this.user = user;
+      else {
+        this.user = {
+          displayName: "",
+          lowercaseName: "",
+          email: "",
+          photoURL: "",
+          uid: ""
+        }
+      }
     });
    }
 
   ngOnInit(): void {
+  }
+
+  ngOnDestroy(): void {
+
+    /* remove subscriptions */
+    if (this.currentUserSubscription != null) {
+      this.currentUserSubscription.unsubscribe();
+      this.currentUserSubscription = null;
+    }
   }
 
   /* update the nickname of the user in firebase */

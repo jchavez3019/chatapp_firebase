@@ -1,11 +1,11 @@
-import { Injectable, OnDestroy, inject } from '@angular/core';
-import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, UserProfile, onAuthStateChanged } from '@angular/fire/auth';
+import { Injectable, OnDestroy, Query, inject } from '@angular/core';
+import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, UserProfile, onAuthStateChanged, Unsubscribe } from '@angular/fire/auth';
 import { Firestore, setDoc, doc, query, collection, where, getDocs, QuerySnapshot, updateDoc, DocumentReference, FirestoreError, addDoc } from '@angular/fire/firestore';
 import { Router } from '@angular/router';
 
 /* firebase data types */
 import { UserData, UserStatus, userDataConverter, userStatusConverter } from '../firestore.datatypes';
-import { BehaviorSubject, Observable, Subject } from 'rxjs';
+import { BehaviorSubject, Observable } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -23,27 +23,31 @@ export class AuthService implements OnDestroy {
     enforcing a read-only behavior on the stream to others. 
   */
   /* private subjects */
-  private authUserSubject: BehaviorSubject<User | null> = new BehaviorSubject<User | null>(null);
+  private authUserSubject: BehaviorSubject<User | null | undefined> = new BehaviorSubject<User | null | undefined>(this.auth.currentUser);
+  private hasAuthSignedInSubject: BehaviorSubject<Boolean> = new BehaviorSubject<Boolean>(false);
 
   /* public observables */
-  authUsersObservable: Observable<User | null> = this.authUserSubject.asObservable();
+  authUsersObservable: Observable<User | null | undefined> = this.authUserSubject.asObservable();
+  hasAuthSignedInObservable: Observable<Boolean> = this.hasAuthSignedInSubject.asObservable();
 
   private firestore: Firestore = inject(Firestore);
-  private currUserCredential: User | null = null;
+
+  /* subscriptions */
+  private unsubscribeOnAuthStateChanged: Unsubscribe | null = null;
 
   constructor(private router: Router) {
 
 
     /* observes the state of the current user */
-    onAuthStateChanged(this.auth, (credential: User | null) => {
+    this.unsubscribeOnAuthStateChanged = onAuthStateChanged(this.auth, (credential: User | null) => {
       if (credential) {
-        this.currUserCredential = credential;
         this.authUserSubject.next(credential);
+        this.hasAuthSignedInSubject.next(true);
         console.log(`User has logged in with displayName ${credential.displayName} and email ${credential.email}`);
       }
       else {
-        this.currUserCredential = null;
         this.authUserSubject.next(null);
+        this.hasAuthSignedInSubject.next(false);
         console.log("User has logged out and is now null");
       }
     });
@@ -51,58 +55,72 @@ export class AuthService implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-
+    if (this.unsubscribeOnAuthStateChanged != null) {
+      this.unsubscribeOnAuthStateChanged();
+      this.unsubscribeOnAuthStateChanged = null;
+    }
   }
 
-  /* check Auth */
-  authUser(): boolean {
+  authUserLoggedIn() : Boolean {
+    const authUserSubjectLast: User | null | undefined = this.authUserSubject.getValue();
 
-    /* return whether or not the user is signed in */
-    return (this.auth.currentUser != null) ? true : false;
+    if (typeof(authUserSubjectLast) == null || typeof(authUserSubjectLast) == undefined)
+      return false;
+    else
+      return true;
   }
 
   /* sign up */
-  async signUp(usercreds: any) {
+  signUp(usercreds: any) : Promise<void> {
 
     var result = null;
 
-    /* from new firebase documenation */
-    await createUserWithEmailAndPassword(this.auth, usercreds.email, usercreds.password)
-    .then((userCredential) => {
-      /* at this point the user is signed in and the new user is returned as userCredential */
-      // console.log(userCredential);
+    return new Promise((resolve, reject) => {
+      /* from new firebase documenation */
+      createUserWithEmailAndPassword(this.auth, usercreds.email, usercreds.password)
+      .then((userCredential) => {
+        /* at this point the user is signed in and the new user is returned as userCredential */
+        // console.log(userCredential);
 
-      /* update the current user */
-      this.auth.updateCurrentUser(userCredential.user);
+        /* update the current user */
+        const prom1 = this.auth.updateCurrentUser(userCredential.user);
 
-      /* update the profile of the newly created user */
-      updateProfile(userCredential.user, {
-        displayName: usercreds.displayName,
-        photoURL: "https://www.pngall.com/wp-content/uploads/5/Profile-Male-PNG-Free-Download.png"
+        /* update the profile of the newly created user */
+        const prom2 = updateProfile(userCredential.user, {
+          displayName: usercreds.displayName,
+          photoURL: "https://www.pngall.com/wp-content/uploads/5/Profile-Male-PNG-Free-Download.png"
+        });
+
+        /* now create the user's data */
+        const prom3 = this.setUserData(usercreds.email, usercreds.displayName, "https://www.pngall.com/wp-content/uploads/5/Profile-Male-PNG-Free-Download.png");
+
+        /* now update the user's status */
+        const prom4 = this.setStatus("online");
+
+        Promise.all([prom1, prom2, prom3, prom4])
+        .then(() => {
+          /* navigate to the dashboard and resolve */
+          this.router.navigate(['dashboard']);
+
+          resolve();
+        })
+        .catch((error) => {
+          /* error with one of the four promises */
+          reject(error)
+        });
+
+        
+
+      })
+      .catch((error) => {
+        /* one error to check if the case where the user already exists */
+        const errorCode = error.code;
+        const errorMessage = error.message;
+        console.log("error code: " + errorCode + " with msg: " + errorMessage);
+        result = errorCode;
       });
-
-      /* now create the user's data */
-      this.setUserData(usercreds.email, usercreds.displayName, "https://www.pngall.com/wp-content/uploads/5/Profile-Male-PNG-Free-Download.png");
-
-      /* now update the user's status */
-      this.setStatus("online")
-      .catch((error) => console.log("Error setting status with message: \n" + error.message));
-
-      /* navigate to the dashboard if there are no errors */
-      this.router.navigate(['dashboard']);
-
-    })
-    .catch((error) => {
-      /* one error to check if the case where the user already exists */
-      const errorCode = error.code;
-      const errorMessage = error.message;
-      console.log("error code: " + errorCode + " with msg: " + errorMessage);
-      result = errorCode;
     });
 
-    if (result != null) {
-      throw Error(result);
-    }
   }
 
   /* login */
@@ -157,14 +175,11 @@ export class AuthService implements OnDestroy {
   }
 
   /* Updates the data for a user. If the user's data does not exist, it will be created */
-  async setUserData(email: string, displayName: string, photoURL: string) {
-    var result = null;
+  setUserData(email: string, displayName: string, photoURL: string) : Promise<void> {
 
-    /* get user auth uid */
-    const userId = this.auth.currentUser?.uid;
+    return new Promise<void>((resolve, reject) => {
 
-    /* will never be undefined but still checking */
-    if (userId != undefined) {
+      const userId: string = <string>this.auth.currentUser?.uid;
 
       /* create custom document references */
       const userDoc = doc(this.firestore, `users/${userId}`).withConverter(userDataConverter);
@@ -179,21 +194,14 @@ export class AuthService implements OnDestroy {
 
       /* Note that in this case, setDoc will create new documents */
       /* first we add the new user to the database under 'users' */
-      await setDoc(userDoc, newUserData)
-      .catch((error) => {
-        /* one error to check if the case where the user already exists */
-        const errorCode = error.code;
-        const errorMessage = error.message;
-        console.log("error code: " + errorCode + " with msg: " + errorMessage);
-        result = errorCode;
-      });
+      setDoc(userDoc, newUserData)
+      .then(() => {
+        resolve();
+      })
+      .catch((error) => reject(error));
+      
+    });
 
-      if (result != null) {
-        throw Error(result);
-      }
-    }
-
-    
   }
 
   /* Updates the status of a user. If the user's status does not exist, it will be created */
@@ -209,14 +217,14 @@ export class AuthService implements OnDestroy {
       else
         reject("Invalid status; Status should either be 'online' or 'offline'");
 
-      const userStatusQuery = query(collection(this.firestore, "status").withConverter(userStatusConverter), where("email","==", this.currUserCredential?.email));
+      const userStatusQuery = query<UserStatus>(collection(this.firestore, "status").withConverter(userStatusConverter), where("email","==", this.auth.currentUser?.email));
       getDocs(userStatusQuery)
       .then((userStatus_snapshot: QuerySnapshot<UserStatus>) => {
 
         if (userStatus_snapshot.size == 0) {
           /* user status document does not exist, it must be created */
           addDoc(collection(this.firestore, "status").withConverter(userStatusConverter), {
-            "email": this.currUserCredential?.email,
+            "email": this.auth.currentUser?.email,
             "online": isOnline
           })
           .then(() => {

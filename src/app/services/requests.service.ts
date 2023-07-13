@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Observable, Subject } from 'rxjs';
-import { Auth, Unsubscribe, User } from '@angular/fire/auth';
+import { BehaviorSubject, Observable, Subject, Subscription, filter } from 'rxjs';
+import { Auth, Unsubscribe, User, onAuthStateChanged } from '@angular/fire/auth';
 import { Firestore, collection, addDoc, CollectionReference, DocumentReference, and, or, setDoc, doc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, query, QuerySnapshot, FirestoreError, DocumentData, where, QueryFilterConstraint, deleteDoc, WriteBatch, writeBatch } from '@angular/fire/firestore';
 import { RequestData, UserData, requestDataConverter, userDataConverter } from '../firestore.datatypes';
 import { FriendsService } from './friends.service';
@@ -29,24 +29,19 @@ export class RequestsService {
   receivedRequestsObservable: Observable<UserData[]> = this.receivedRequestsSubject.asObservable();
   sentRequestsObservable: Observable<UserData[]> = this.sentRequestsSubject.asObservable();
 
-  /* subcribed observables */
-  private currUserCredential: User | null = null;
-
-  /* snapshot subscriptions that must be unsubscribed to */
+  /* subscriptions */
   private receivedRequestsOnsnapshotUnsubscribe: Unsubscribe | null = null;
+  private onAuthStateChangedUnsubscribe: Unsubscribe | null = null;
 
   constructor(private authService: AuthService, private friendsService: FriendsService) {
 
-      /* NOTE: remember to unsubcribe to this */
-      this.authService.authUsersObservable.subscribe((credential) => {
-        this.currUserCredential = credential;
+      this.onAuthStateChangedUnsubscribe = onAuthStateChanged(this.auth, (credential: User | null) => {
+        if (credential) {
+          /* perform initializations */
+          this.initializeRecievedRequests();
+          this.initializeSentRequests();  
+        } 
       });
-
-      /* subscribe to the friend requests the current user has received */
-      this.initializeRecievedRequests();
-
-      /* populate the array holding all sent requests */
-      this.initializeSentRequests();
 
   }
 
@@ -55,6 +50,11 @@ export class RequestsService {
     if (this.receivedRequestsOnsnapshotUnsubscribe != null) {
       this.receivedRequestsOnsnapshotUnsubscribe();
       this.receivedRequestsOnsnapshotUnsubscribe = null;
+    }
+
+    if (this.onAuthStateChangedUnsubscribe != null) {
+      this.onAuthStateChangedUnsubscribe();
+      this.onAuthStateChangedUnsubscribe = null;
     }
       
 
@@ -76,7 +76,8 @@ export class RequestsService {
       * Emits newly recieved requests
   */
   initializeRecievedRequests() {
-    const receivedRequestsQuery = query(collection(this.firestore, "requests").withConverter(requestDataConverter), where("receiver", "==", this.currUserCredential?.email));
+
+    const receivedRequestsQuery = query(collection(this.firestore, "requests").withConverter(requestDataConverter), where("receiver", "==", this.auth.currentUser?.email));
     this.receivedRequestsOnsnapshotUnsubscribe = onSnapshot(receivedRequestsQuery, {
       next: (receivedRequests_snapshot: QuerySnapshot<RequestData>) => {
 
@@ -108,11 +109,13 @@ export class RequestsService {
         }
         
       }
-    })
+    });
+
   }
 
   initializeSentRequests() {
-    const sentRequestsQuery = query(collection(this.firestore, "requests").withConverter(requestDataConverter), where("sender", "==", this.currUserCredential?.email));
+
+    const sentRequestsQuery = query(collection(this.firestore, "requests").withConverter(requestDataConverter), where("sender", "==", this.auth.currentUser?.email));
     getDocs(sentRequestsQuery)
     .then((sentRequests_snapshot: QuerySnapshot<RequestData>) => {
 
@@ -132,13 +135,14 @@ export class RequestsService {
       }
 
     });
+
   }
 
   /* send a friend request from the current user to the specified user */
   addRequest(newToRequest: string): Promise<DocumentReference<RequestData>> {
 
     let newFriendRequest: RequestData = {
-      sender: <string>this.currUserCredential?.email,
+      sender: <string>this.auth.currentUser?.email,
       receiver: newToRequest
     }
 
@@ -184,15 +188,14 @@ export class RequestsService {
       */
       (async () => {
 
-        
         /* emails */
-        const currUserEmail = this.currUserCredential?.email;
+        const currUserEmail = this.auth.currentUser?.email;
         const otherUserEmail = friendRequest.email;
 
         let acceptRequestBatch: WriteBatch = writeBatch(this.firestore); // batch for atomic operations in Firestore
 
         /* queries for both users */
-        const currUserFriendsQuery = query(this.friendsCollectionRef, where("email","==", this.currUserCredential?.email));
+        const currUserFriendsQuery = query(this.friendsCollectionRef, where("email","==", this.auth.currentUser?.email));
         const otherUserFriendsQuery = query(this.friendsCollectionRef, where("email", "==", friendRequest.email));
 
         /* add other user as a friend for the current user */
@@ -365,7 +368,7 @@ export class RequestsService {
   deleteRequests(friendRequest: any) {
 
     /* emails */
-    const currUserEmail = this.currUserCredential?.email;
+    const currUserEmail = this.auth.currentUser?.email;
     const otherUserEmail = friendRequest.email;
 
     /* building query */

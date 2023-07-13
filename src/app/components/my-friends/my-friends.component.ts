@@ -31,6 +31,7 @@ export class MyFriendsComponent implements OnInit {
     /* unsubscribe to allFriendsSubject */
     if (this.allFriendsSubjectSubscription != null)
       this.allFriendsSubjectSubscription.unsubscribe();
+      this.allFriendsSubjectSubscription = null;
   }
 
 }

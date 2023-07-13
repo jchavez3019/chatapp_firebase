@@ -1,8 +1,8 @@
 import { Injectable, inject, OnDestroy, Query } from '@angular/core';
-import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, Unsubscribe } from '@angular/fire/auth';
+import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, Unsubscribe, onAuthStateChanged } from '@angular/fire/auth';
 import { Firestore, collection, query, where, and, or, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, snapToData, QuerySnapshot, QueryFilterConstraint, FirestoreError, DocumentData, orderBy, startAt, endAt, limit, QueryDocumentSnapshot } from '@angular/fire/firestore';
 import { Storage, UploadTask, uploadBytesResumable, ref, StorageReference, TaskEvent, uploadBytes, getDownloadURL } from '@angular/fire/storage';
-import { BehaviorSubject, combineLatest, take, map, tap, filter } from 'rxjs';
+import { BehaviorSubject, combineLatest, take, map, tap, filter, Subscription } from 'rxjs';
 
 /* firebase data interfaces */
 import { UserData, userDataConverter } from '../firestore.datatypes';
@@ -23,10 +23,11 @@ export class UserService implements OnDestroy {
 
   private storage: Storage = inject(Storage);
 
-  private currUserCredential: User | null = null;
-
   authState$ = authState(this.auth);
   authStateSubscription: any;
+
+  /* subscriptions */
+  private onAuthStateChangedUnsubscribe: Unsubscribe | null = null;
 
   /* current user whose information will be displayed in the dashboard */
   /*NOTE: look into FirestoreConverter */
@@ -41,12 +42,13 @@ export class UserService implements OnDestroy {
 
   constructor(private authService: AuthService, private requestsService: RequestsService, private friendsService: FriendsService) {
 
-    /* NOTE: remember to unsubscribe to this */
-    this.authService.authUsersObservable.subscribe((credential) => {
-      this.currUserCredential = credential;
+    this.onAuthStateChangedUnsubscribe = onAuthStateChanged(this.auth, (credential: User | null) => {
+      if (credential) {
+        /* perform initializations */
+        this.initializeAll();  
+      } 
     });
 
-    this.initializeAll();    
    }
 
    ngOnDestroy(): void {
@@ -55,6 +57,11 @@ export class UserService implements OnDestroy {
     if (this.unsub != null) {
       this.unsub();
       this.unsub = null;
+    }
+
+    if (this.onAuthStateChangedUnsubscribe != null) {
+      this.onAuthStateChangedUnsubscribe();
+      this.onAuthStateChangedUnsubscribe = null;
     }
   }
 
@@ -197,7 +204,7 @@ export class UserService implements OnDestroy {
       .subscribe((nonSearchableUsers: string[]) => {
         searched_snapshot.forEach((user_doc: QueryDocumentSnapshot<UserData>) => {
           const userData = user_doc.data();
-          if (!nonSearchableUsers.includes(userData.email) && (this.currUserCredential?.email !== userData.email))
+          if (!nonSearchableUsers.includes(userData.email) && (this.auth.currentUser?.email !== userData.email))
             searchResults.push(userData);
         });
       });

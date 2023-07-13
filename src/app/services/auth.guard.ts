@@ -2,7 +2,6 @@ import { Injectable, inject } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivate, RouterStateSnapshot, UrlTree, Router } from '@angular/router';
 import { Observable } from 'rxjs';
 import { AuthService } from './auth.service';
-import { Auth } from '@angular/fire/auth';
 
 @Injectable({
   providedIn: 'root'
@@ -16,7 +15,11 @@ export class AuthGuard implements CanActivate {
     route: ActivatedRouteSnapshot,
     state: RouterStateSnapshot): Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree {
 
-      if (this.authService.authUser()) {
+      const isUserLoggedIn: Boolean = this.authService.authUserLoggedIn();
+
+      // console.log("Auth guard found user logged in as: " + isUserLoggedIn);
+
+      if (this.authService.authUserLoggedIn()) {
         return true;
       }
       else {

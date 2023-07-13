@@ -2,10 +2,10 @@
   This service deals with friends, friend requests, friend suggestions, and searching for users to add as friends.
 */
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Observable, Subject, filter, take } from 'rxjs';
+import { BehaviorSubject, Observable, Subscription, filter, take, tap } from 'rxjs';
 
 /* firebase */
-import { Auth, User } from '@angular/fire/auth';
+import { Auth, User, onAuthStateChanged } from '@angular/fire/auth';
 import { Firestore, FirestoreError, where, collection, getDocs, query, DocumentData, QuerySnapshot, addDoc, DocumentReference, Unsubscribe, onSnapshot, doc, writeBatch, WriteBatch, CollectionReference } from '@angular/fire/firestore';
 
 /* templates */
@@ -26,33 +26,38 @@ export class FriendsService {
   /* public observables */
   allFriendsObservable: Observable<UserData[]> = this.allFriendsSubject.asObservable();
 
-  /* subcribes observables */
-  private currUserCredential: User | null = null;
-
   /* path to current user's 'myFriends' sub collection */
   currUserMyFriendsCollection: CollectionReference | null = null;
 
-  /* snapshot subscriptions that must be unsubscribed to */
+  /* subscriptions */
   private allFriendsOnsnapshotUnsubscribe: Unsubscribe | null = null;
+  private onAuthStateChangedUnsubscribe: Unsubscribe | null = null;
 
 
   constructor(private authService: AuthService) {
 
-    /* NOTE: remember to unsubcribe */
-    this.authService.authUsersObservable.subscribe((credential: User | null) => {
-      this.currUserCredential = credential;
-    });
 
-    /* subscribe to the friends of the current user */
-    this.initializeFriendsSubject();
+    this.onAuthStateChangedUnsubscribe = onAuthStateChanged(this.auth, (credential: User | null) => {
+      if (credential) {
+        /* perform initializations */
+        this.initializeFriendsSubject();  
+      } 
+    });
 
   }
 
   ngOnDestroy() {
 
     /* unsubscribe to snapshots */
-    if (this.allFriendsOnsnapshotUnsubscribe != null)
+    if (this.allFriendsOnsnapshotUnsubscribe != null) {
       this.allFriendsOnsnapshotUnsubscribe();
+      this.allFriendsOnsnapshotUnsubscribe = null;
+    }
+
+    if (this.onAuthStateChangedUnsubscribe != null) {
+      this.onAuthStateChangedUnsubscribe();
+      this.onAuthStateChangedUnsubscribe = null;
+    }
 
   }
 
@@ -64,17 +69,17 @@ export class FriendsService {
     Returns: None
     Effects: Starts the emission of the allFriendsSubject Subject
   */
-  async initializeFriendsSubject() {
-
+  initializeFriendsSubject() {
+        
       /* first query for the current user's friend list */
-      const friendsQuery = query(collection(this.firestore, "friends"), where("email", "==", this.currUserCredential?.email));
+      const friendsQuery = query(collection(this.firestore, "friends"), where("email", "==", this.auth.currentUser?.email));
       getDocs(friendsQuery)
       .then(async (friends_snapshot: QuerySnapshot<DocumentData>) => {
 
         /* if the user has no document in the 'friends' collection, it must be created along with a temporary entry in the 'myFriends' subcollection */
         if (friends_snapshot.empty) {
 
-          await addDoc(collection(this.firestore, 'friends'), { email: this.currUserCredential?.email} )
+          await addDoc(collection(this.firestore, 'friends'), { email: this.auth.currentUser?.email} )
           .then((docRef: DocumentReference<DocumentData>) => {
             this.currUserMyFriendsCollection = collection(this.firestore, `friends/${docRef.id}/myFriends`);
           })
@@ -88,7 +93,7 @@ export class FriendsService {
         }
 
         /* create a snapshot for the myFriends subcollection and emit through the allFriends Subject when there is a change */
-        const friendsSubCollectionRef = query(<CollectionReference>this.currUserMyFriendsCollection, where("email", "!=", this.currUserCredential?.email));
+        const friendsSubCollectionRef = query(<CollectionReference>this.currUserMyFriendsCollection, where("email", "!=", this.auth.currentUser?.email));
         this.allFriendsOnsnapshotUnsubscribe = onSnapshot(friendsSubCollectionRef,
           (myFriendsSnapshot: QuerySnapshot<DocumentData>) => {
 
@@ -112,13 +117,14 @@ export class FriendsService {
 
                 /* emit the data for all the friends */
                 this.allFriendsSubject.next(updatedFriendsUserData);
-              });
+                console.log();
+              })
+              .catch((error: FirestoreError) => console.log(error));
             }
-            
 
           },
           (error: FirestoreError) => {
-            console.log("Error getting subcollection of friends with head: " + error.name + " with message :" + error.message);
+            console.log("Error getting subcollection of friends with message: " + error.message);
           });
       })
       .catch((error: FirestoreError) => console.log("Error initializing friends subject with message:\n" + error.message));
