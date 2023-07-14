@@ -1,9 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { RequestsService } from 'src/app/services/requests.service';
-import { UserService } from 'src/app/services/user.service';
-import { QuerySnapshot, FirestoreError } from '@angular/fire/firestore';
-
 import { UserData } from 'src/app/firestore.datatypes';
 import { Subscription } from 'rxjs';
 

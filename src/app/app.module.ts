@@ -41,13 +41,13 @@ import { MatListModule } from '@angular/material/list';
 /* services */
 import { AuthService } from './services/auth.service';
 import { UserService } from './services/user.service';
-import { NavBarComponent } from './components/nav-bar/nav-bar.component';
-import { SidebarComponent } from './components/sidebar/sidebar.component';
-import { ProfileComponent } from './components/profile/profile.component';
+import { NavBarComponent } from './components/dashboard/nav-bar/nav-bar.component';
+import { SidebarComponent } from './components/dashboard/sidebar/sidebar.component';
+import { ProfileComponent } from './components/dashboard/sidebar/profile/profile.component';
 import { provideStorage, getStorage } from '@angular/fire/storage';
-import { AddFriendsComponent } from './components/add-friends/add-friends.component';
-import { RequestsComponent } from './components/requests/requests.component';
-import { MyFriendsComponent } from './components/my-friends/my-friends.component';
+import { AddFriendsComponent } from './components/dashboard/sidebar/add-friends/add-friends.component';
+import { RequestsComponent } from './components/dashboard/sidebar/requests/requests.component';
+import { MyFriendsComponent } from './components/dashboard/sidebar/my-friends/my-friends.component';
 
 
 @NgModule({
