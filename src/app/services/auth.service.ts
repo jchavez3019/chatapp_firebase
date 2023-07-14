@@ -240,7 +240,7 @@ export class AuthService implements OnDestroy {
         }
         else {
           const docRef: DocumentReference = doc(this.firestore, `status/${userStatus_snapshot.docs[0].id}`);
-          updateDoc(docRef, { ["status"]: status })
+          updateDoc(docRef, { ["online"]: isOnline })
           .then(() => {
             resolve();
           })

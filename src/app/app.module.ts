@@ -16,9 +16,6 @@ import { appRoutes } from './routes';
 import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
 import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { getAuth, provideAuth } from '@angular/fire/auth';
-// import { AngularFireModule } from '@angular/fire/compat';
-// import { AngularFirestoreModule } from '@angular/fire/compat/firestore';
-// import { AngularFireAuth, AngularFireAuthModule } from '@angular/fire/compat/auth';
 
 /* generated components */
 import { LoginPageComponent } from './components/login-page/login-page.component';

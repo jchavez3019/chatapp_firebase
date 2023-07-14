@@ -2,10 +2,10 @@ import { Injectable, inject, OnDestroy, Query } from '@angular/core';
 import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, Unsubscribe, onAuthStateChanged } from '@angular/fire/auth';
 import { Firestore, collection, query, where, and, or, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, snapToData, QuerySnapshot, QueryFilterConstraint, FirestoreError, DocumentData, orderBy, startAt, endAt, limit, QueryDocumentSnapshot } from '@angular/fire/firestore';
 import { Storage, UploadTask, uploadBytesResumable, ref, StorageReference, TaskEvent, uploadBytes, getDownloadURL } from '@angular/fire/storage';
-import { BehaviorSubject, combineLatest, take, map, tap, filter, Subscription } from 'rxjs';
+import { BehaviorSubject, combineLatest, take, map, tap, filter, Subscription, Observable } from 'rxjs';
 
 /* firebase data interfaces */
-import { UserData, userDataConverter } from '../firestore.datatypes';
+import { UserData, UserStatus, userDataConverter, userStatusConverter } from '../firestore.datatypes';
 import { RequestsService } from './requests.service';
 import { FriendsService } from './friends.service';
 import { AuthService } from './auth.service';
@@ -25,8 +25,21 @@ export class UserService implements OnDestroy {
 
   authState$ = authState(this.auth);
 
+  
+
+  /* variables */
+  private friendStatuses: UserStatus[] = [];
+
+  /* private subjects */
+  private friendStatusesSubject: BehaviorSubject<UserStatus[]> = new BehaviorSubject<UserStatus[]>([]);
+
+  /* public observables */
+  friendStatusesObservable: Observable<UserStatus[]> = this.friendStatusesSubject.asObservable();
+
   /* subscriptions */
   private onAuthStateChangedUnsubscribe: Unsubscribe | null = null;
+  private allFriendsObservableSubscription: Subscription | null = null;
+  private friendStatusesUnsubscribe: Unsubscribe | null = null;
 
   /* current user whose information will be displayed in the dashboard */
   /*NOTE: look into FirestoreConverter */
@@ -82,6 +95,9 @@ export class UserService implements OnDestroy {
         console.log("Error in snapshot: " + error);
       }
     });
+
+    /* listens to updated friends and gets their online status */
+    this.allFriendsObservableSubscription = this.friendsService.allFriendsObservable.subscribe((allFriends: UserData[]) => this.snapshotFriendStatuses(allFriends));
   }
 
 
@@ -99,7 +115,14 @@ export class UserService implements OnDestroy {
       This resets all global variables and publishes empty data through all subjects
   */
   resetFields() {
+
+    /* blank emissions */
     this.currentUser.next(undefined);
+    this.friendStatusesSubject.next([]);
+
+    /* reset variables */
+    this.friendStatuses = [];
+
   }
 
   /* Author: Jorge Chavez
@@ -124,6 +147,16 @@ export class UserService implements OnDestroy {
     if (this.onAuthStateChangedUnsubscribe != null) {
       this.onAuthStateChangedUnsubscribe();
       this.onAuthStateChangedUnsubscribe = null;
+    }
+
+    if (this.allFriendsObservableSubscription != null) {
+      this.allFriendsObservableSubscription.unsubscribe();
+      this.allFriendsObservableSubscription = null;
+    }
+
+    if (this.friendStatusesUnsubscribe != null) {
+      this.friendStatusesUnsubscribe();
+      this.friendStatusesUnsubscribe = null;
     }
   }
 
@@ -223,9 +256,107 @@ export class UserService implements OnDestroy {
     return getDoc(userDoc);
   }
 
-  /* get users by email */
-  getUsersByEmail() {
+
+  /* Author: Jorge Chavez
+  Description: Gets the online status from a list of users
+  Inputs:
+    users: UserData[] -- list of users from which to check online status
+  Outputs:
+    None:
+  Returns:
+    Promise<Boolean[]> -- Promise that returns online statuses once resolved
+  Effects:
+    None
+  */
+  getUserStatuses(users: UserData[]) : Promise<Boolean[]> {
+
+    return new Promise((resolve, reject) => {
+      let userStatuses: Boolean[] = Array(users.length).fill(false); // array of user statuses to return 
+      let allUserPromises: Promise<void>[] = []; // individual promises for returning each user's status
+
+      /* if no users are given, resolve with empty array */
+      if (users.length == 0)
+        resolve([]);
+
+      /* creates individual promises for each user to get their status */
+      users.forEach((currUser: UserData, currIndex: number) => {
+
+        const currUserEmail = currUser.email;
+
+        /* create a status query for the current user in the list */
+        const userStatusQuery = query(collection(this.firestore, "status").withConverter(userStatusConverter), where("email", "==", currUserEmail));
+
+        /* create a promise to ensure that a status was retrieved for the current user */
+        const currProm: Promise<void> = new Promise<void>((prom_resolve, prom_reject) => {
+          getDocs(userStatusQuery)
+          .then((UserStatus_snapshot: QuerySnapshot<UserStatus>) => {
+            if (UserStatus_snapshot.size === 0) {
+              prom_reject("No status document exists for user with email: " + currUserEmail);
+            }
+            else if (UserStatus_snapshot.size > 1) {
+              prom_reject("Multiple status documents exists for user with email: " + currUserEmail);
+            }
+            else {
+              userStatuses[currIndex] = UserStatus_snapshot.docs[0].data()['online'];
+              prom_resolve();
+            }
+          })
+          .catch((error: FirestoreError) => prom_reject(error));
+        });
+
+        /* push the promise */
+        allUserPromises.push(currProm);
     
+      }); 
+
+      /* once all individual user promises have been fulfilled, return all their statuses */
+      Promise.all(allUserPromises)
+      .then(() => resolve(userStatuses))
+      .catch((error: FirestoreError) => reject(error));
+    });
+
+  }
+
+  private snapshotFriendStatuses(users: UserData[]) {
+
+    /* unsubscribe to the previous snapshot */
+    if (this.friendStatusesUnsubscribe != null) {
+      this.friendStatusesUnsubscribe();
+      this.friendStatusesUnsubscribe = null;
+    }
+
+    /* return nothing since there are no friends to snapshot to */
+    if (users.length == 0) {
+      return;
+    }
+
+    const userEmails: string[] = users.map((currUser) => currUser.email);
+
+    const friendStatusQuery = query(collection(this.firestore, "status").withConverter(userStatusConverter), where("email", "in", userEmails));
+    this.friendStatusesUnsubscribe = onSnapshot(friendStatusQuery,
+      (friendStatus_snapshot: QuerySnapshot<UserStatus>) => {
+
+        /* look for only added and modified document changes */
+        friendStatus_snapshot.docChanges().forEach((statusChange) => {
+          if (statusChange.type === "added") {
+            /* adds user statuses */
+            this.friendStatuses.push({
+              "email": statusChange.doc.data()['email'],
+              "online": statusChange.doc.data()['online']
+            });
+            this.friendStatusesSubject.next(this.friendStatuses);
+          }
+          if (statusChange.type === "modified") {
+            /* modified user statuses */
+            const modifiedStatus: UserStatus = statusChange.doc.data();
+            const idx = this.friendStatuses.map((friendUserStatus) => friendUserStatus.email).findIndex((email) => email === modifiedStatus.email);
+            this.friendStatuses[idx].online = modifiedStatus.online;
+            this.friendStatusesSubject.next(this.friendStatuses);
+          }
+        });
+
+    });
+
   }
 
   /* instant search for add friend component */
