@@ -36,13 +36,50 @@ export class SuggestionsService {
         /* perform initializations */
         this.initialBasicSuggestions();
       } 
+      else {
+        /* user has signed out, need to reset all */
+        this.resetFields();
+      }
     });
-    
   
    }
 
   ngOnDestroy() {
+    this.clearSubscriptions();
+    this.resetFields();
+  }
 
+  /* Author: Jorge Chavez
+    Description:
+      Any global data needs to be nulled or set to empty, and all subjects should publish null or empty. This
+      functionality is required when logging out so that data does not leak to another user
+    Inputs:
+      None
+    Outputs:
+      None
+    Returns:
+      None
+    Effects:
+      This resets all global variables and publishes empty data through all subjects
+  */
+  resetFields() {
+    this.latestSuggestions = [];
+    this.suggestsSubject.next([]);
+  }
+
+  /* Author: Jorge Chavez
+    Description:
+      Clears all subscriptions
+    Inputs:
+      None
+    Outputs:
+      None
+    Returns:
+      None
+    Effects:
+      Removes all subscriptions
+  */
+  clearSubscriptions() {
     /* unsubscribe to all subjects */
     if (this.combineSubscription != null) {
       this.combineSubscription.unsubscribe();
@@ -53,9 +90,6 @@ export class SuggestionsService {
       this.onAuthStateChangedUnsubscribe();
       this.onAuthStateChangedUnsubscribe = null;
     }
-      
-
-    
   }
 
   async initialBasicSuggestions() {

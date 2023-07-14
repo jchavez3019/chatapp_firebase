@@ -24,7 +24,6 @@ export class UserService implements OnDestroy {
   private storage: Storage = inject(Storage);
 
   authState$ = authState(this.auth);
-  authStateSubscription: any;
 
   /* subscriptions */
   private onAuthStateChangedUnsubscribe: Unsubscribe | null = null;
@@ -45,24 +44,20 @@ export class UserService implements OnDestroy {
     this.onAuthStateChangedUnsubscribe = onAuthStateChanged(this.auth, (credential: User | null) => {
       if (credential) {
         /* perform initializations */
+        console.log("logged in; performing user initialization");
         this.initializeAll();  
       } 
+      else {
+        /* user has signed out, need to reset everything */
+        this.resetFields();
+      }
     });
 
    }
 
    ngOnDestroy(): void {
-    // when manually subscribing to an observable remember to unsubscribe in ngOnDestroy
-    this.authStateSubscription.unsubscribe();
-    if (this.unsub != null) {
-      this.unsub();
-      this.unsub = null;
-    }
-
-    if (this.onAuthStateChangedUnsubscribe != null) {
-      this.onAuthStateChangedUnsubscribe();
-      this.onAuthStateChangedUnsubscribe = null;
-    }
+    this.clearSubscriptions();
+    this.resetFields();
   }
 
   initializeAll() {
@@ -87,6 +82,49 @@ export class UserService implements OnDestroy {
         console.log("Error in snapshot: " + error);
       }
     });
+  }
+
+
+  /* Author: Jorge Chavez
+    Description:
+      Any global data needs to be nulled or set to empty, and all subjects should publish null or empty. This
+      functionality is required when logging out so that data does not leak to another user
+    Inputs:
+      None
+    Outputs:
+      None
+    Returns:
+      None
+    Effects:
+      This resets all global variables and publishes empty data through all subjects
+  */
+  resetFields() {
+    this.currentUser.next(undefined);
+  }
+
+  /* Author: Jorge Chavez
+    Description:
+      Clears all subscriptions
+    Inputs:
+      None
+    Outputs:
+      None
+    Returns:
+      None
+    Effects:
+      Removes all subscriptions
+  */
+  clearSubscriptions() {
+    // when manually subscribing to an observable remember to unsubscribe in ngOnDestroy
+    if (this.unsub != null) {
+      this.unsub();
+      this.unsub = null;
+    }
+
+    if (this.onAuthStateChangedUnsubscribe != null) {
+      this.onAuthStateChangedUnsubscribe();
+      this.onAuthStateChangedUnsubscribe = null;
+    }
   }
 
   async updateNickname(newname: string) {

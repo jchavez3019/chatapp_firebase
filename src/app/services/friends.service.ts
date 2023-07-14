@@ -42,12 +42,50 @@ export class FriendsService {
         /* perform initializations */
         this.initializeFriendsSubject();  
       } 
+      else {
+        /* user has signed out, reset all */
+        this.resetFields();
+      }
     });
 
   }
 
   ngOnDestroy() {
+    this.clearSubscriptions();
+    this.resetFields();
+  }
 
+  /* Author: Jorge Chavez
+    Description:
+      Any global data needs to be nulled or set to empty, and all subjects should publish null or empty. This
+      functionality is required when logging out so that data does not leak to another user
+    Inputs:
+      None
+    Outputs:
+      None
+    Returns:
+      None
+    Effects:
+      This resets all global variables and publishes empty data through all subjects
+  */
+  resetFields() {
+    this.allFriendsSubject.next([]);
+    this.currUserMyFriendsCollection = null;
+  }
+
+  /* Author: Jorge Chavez
+    Description:
+      Clears all subscriptions
+    Inputs:
+      None
+    Outputs:
+      None
+    Returns:
+      None
+    Effects:
+      Removes all subscriptions
+  */
+  clearSubscriptions() {
     /* unsubscribe to snapshots */
     if (this.allFriendsOnsnapshotUnsubscribe != null) {
       this.allFriendsOnsnapshotUnsubscribe();
@@ -58,7 +96,6 @@ export class FriendsService {
       this.onAuthStateChangedUnsubscribe();
       this.onAuthStateChangedUnsubscribe = null;
     }
-
   }
 
   /* Author: Jorge Chavez
