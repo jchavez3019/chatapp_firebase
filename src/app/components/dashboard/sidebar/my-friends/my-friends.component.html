@@ -2,9 +2,11 @@
     <mat-list-item *ngFor="let user of userFriends; let i = index">
         <img matListAvatar src="{{user.photoURL}}">
         <h3 matLine> {{user.displayName}} </h3>
-        <p matLine>
-            {{ (friendStatuses[i] != undefined && friendStatuses[i].online) ? "online" : "offline" }}
-        </p>
+        <div matLine>
+            <p>
+                {{ (friendStatuses[i] != undefined && friendStatuses[i].online) ? "online" : "offline" }}
+            </p>
+        </div>
+        
     </mat-list-item>
 </mat-list>
-<!-- <p>friends successful</p> -->
