@@ -71,3 +71,45 @@ export const requestDataConverter: FirestoreDataConverter<RequestData> = {
         return docSnap.data() as RequestData;
     }
 }
+
+/* requests: ConversationInfo */
+
+/* interface */
+export interface ConversationInfo {
+    conversationID: string;
+    messenger1: string;
+    messenger2: string;
+}
+
+/* convert */
+export const convserationInfoConverter: FirestoreDataConverter<ConversationInfo> = {
+    toFirestore(conversationInfo: ConversationInfo): DocumentData {
+        return { ...conversationInfo };
+    },
+
+    fromFirestore(docSnap: QueryDocumentSnapshot): ConversationInfo {
+        return docSnap.data() as ConversationInfo;
+    }
+}
+
+/* requests: MessageData */
+
+/* interface */
+export interface MessageData {
+    message: string;
+    senderEmail: string;
+    date: string;
+}
+
+/* convert */
+export const messageDataConverter: FirestoreDataConverter<MessageData> = {
+    toFirestore(messageData: MessageData): DocumentData {
+        // console.log("requrestData went through to-converter");
+        return { ...messageData };
+    },
+
+    fromFirestore(docSnap: QueryDocumentSnapshot): MessageData {
+        // console.log("requestData went through from-converter");
+        return docSnap.data() as MessageData;
+    }
+}

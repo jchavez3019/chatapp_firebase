@@ -1,5 +1,5 @@
 <mat-list>
-    <mat-list-item *ngFor="let user of userFriends; let i = index">
+    <mat-list-item *ngFor="let user of userFriends; let i = index" (click)="openChatFeed(user);">
         <img matListAvatar src="{{user.photoURL}}">
         <h3 matLine> {{user.displayName}} </h3>
         <div matLine>

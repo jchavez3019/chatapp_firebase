@@ -4,6 +4,7 @@ import { Subscription } from 'rxjs';
 /* templates */
 import { UserData, UserStatus } from 'src/app/firestore.datatypes';
 import { FriendsService } from 'src/app/services/friends.service';
+import { MessagesService } from 'src/app/services/messages.service';
 import { UserService } from 'src/app/services/user.service';
 
 @Component({
@@ -19,7 +20,9 @@ export class MyFriendsComponent implements OnInit {
   private allFriendsSubjectSubscription: Subscription | null = null;
   private friendStatusesSubscription: Subscription | null = null;
 
-  constructor(private friendsService: FriendsService, private usersService: UserService) { }
+  constructor(private friendsService: FriendsService, 
+    private usersService: UserService,
+    private messagesService: MessagesService) { }
 
   ngOnInit(): void {
 
@@ -60,6 +63,10 @@ export class MyFriendsComponent implements OnInit {
       this.friendStatusesSubscription = null;
     }
      
+  }
+
+  openChatFeed(user: UserData) {
+    this.messagesService.openchatFeed(user);
   }
 
 }

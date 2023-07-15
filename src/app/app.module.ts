@@ -45,6 +45,8 @@ import { provideStorage, getStorage } from '@angular/fire/storage';
 import { AddFriendsComponent } from './components/dashboard/sidebar/add-friends/add-friends.component';
 import { RequestsComponent } from './components/dashboard/sidebar/requests/requests.component';
 import { MyFriendsComponent } from './components/dashboard/sidebar/my-friends/my-friends.component';
+import { ChatFeedComponent } from './components/dashboard/chat-feed/chat-feed.component';
+import { ChatFeedFooterComponent } from './components/dashboard/chat-feed/chat-feed-footer/chat-feed-footer.component';
 
 
 @NgModule({
@@ -58,7 +60,9 @@ import { MyFriendsComponent } from './components/dashboard/sidebar/my-friends/my
     ProfileComponent,
     AddFriendsComponent,
     RequestsComponent,
-    MyFriendsComponent
+    MyFriendsComponent,
+    ChatFeedComponent,
+    ChatFeedFooterComponent
   ],
   imports: [
     BrowserModule,
