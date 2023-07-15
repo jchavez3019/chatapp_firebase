@@ -1,0 +1,9 @@
+.component {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    width: 100%;
+}
+
+mat-form-field {
+    grid-column: 1/10;
+}
