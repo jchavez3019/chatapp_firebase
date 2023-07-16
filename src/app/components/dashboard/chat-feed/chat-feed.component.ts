@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { MessageData } from 'src/app/firestore.datatypes';
-import { MessagesService } from 'src/app/services/messages.service';
+import { MessagesService, chatPair } from 'src/app/services/messages.service';
 
 @Component({
   selector: 'app-chat-feed',
@@ -10,7 +10,7 @@ import { MessagesService } from 'src/app/services/messages.service';
 })
 export class ChatFeedComponent implements OnInit {
 
-  messageConversation: MessageData[] = [];
+  messageConversations: conversationLog_t[] = [];
 
   /* subscriptions */
   private chatFeedMessagesSubjectSubscription: Subscription | null = null;
@@ -19,10 +19,32 @@ export class ChatFeedComponent implements OnInit {
 
     /* subscribe to the message conversatoin between both users */
     this.chatFeedMessagesSubjectSubscription = this.messagesService.chatFeedMessagesObservable.subscribe(
-      (retrievedMessages: MessageData[]) => {
-        this.messageConversation = retrievedMessages;
+      (retrievedMessages: chatPair[]) => {
+
+        retrievedMessages.forEach(
+          (currChatPair: chatPair) => {
+            const idx = this.messageConversations.findIndex((convoLog: conversationLog_t) => convoLog.chatName === currChatPair.chatName);
+            if (idx === -1) {
+              const newConvoLog: conversationLog_t = {
+                "chatName": currChatPair.chatName,
+                "allMessages": [currChatPair.messageData]
+              }
+              this.messageConversations.push(newConvoLog);
+            }
+            else {
+              this.messageConversations[idx].allMessages.push(currChatPair.messageData);
+            }
+          }
+        )
+
+        /* test viewing all convo logs */
+        console.log(this.messageConversations);
+
       }
     );
+
+    /* ready to start subscribing to messages */
+    this.messagesService.beginRetreivingMessages();
 
    }
 
@@ -41,4 +63,10 @@ export class ChatFeedComponent implements OnInit {
     }
   }
 
+}
+
+/* interfaces */
+interface conversationLog_t {
+  "chatName": string;
+  "allMessages": MessageData[];
 }
