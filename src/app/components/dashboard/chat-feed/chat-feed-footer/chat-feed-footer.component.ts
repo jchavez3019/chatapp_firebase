@@ -42,6 +42,7 @@ export class ChatFeedFooterComponent implements OnInit {
   addMessage() {
     if (this.chatReceiverUser != null && this.newmessage != "") {
       this.messagesService.sendChat(this.chatReceiverUser.email, this.newmessage);
+      this.newmessage = "";
     }
   }
 

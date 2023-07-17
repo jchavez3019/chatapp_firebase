@@ -256,6 +256,10 @@ export class UserService implements OnDestroy {
     return getDoc(userDoc);
   }
 
+  getCurrUserEmail() {
+    return <string> this.auth.currentUser?.email;
+  }
+
 
   /* Author: Jorge Chavez
   Description: Gets the online status from a list of users

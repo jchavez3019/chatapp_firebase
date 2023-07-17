@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Auth, Unsubscribe, User, onAuthStateChanged } from '@angular/fire/auth';
-import { BehaviorSubject, Observable, Subject, Subscription, filter, map } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, Subscription, filter, map, tap } from 'rxjs';
 import { MessageData, UserData, messageDataConverter } from '../firestore.datatypes';
 import { DocumentChange, Firestore, FirestoreError, QueryDocumentSnapshot, QuerySnapshot, WriteBatch, and, collection, doc, getDoc, getDocs, onSnapshot, or, orderBy, query, where, writeBatch } from '@angular/fire/firestore';
 
@@ -83,6 +83,9 @@ export class MessagesService {
   beginRetreivingMessages() {
     this.allFriendsObservableSubscription = this.friendsService.allFriendsObservable
     .pipe(
+      tap(
+        (newFriends: UserData[]) => console.log(`new friend emails: ${newFriends.map((friends) => friends.email)}`)
+      ),
       map(
         (updatedFriends: UserData[]) => {
 
@@ -129,9 +132,6 @@ export class MessagesService {
               const idx = this.pendingSubsriptions.findIndex((email) => email === newFriendEmail);
               this.pendingSubsriptions.splice(idx, 1);
 
-              /* checking subscriptions */
-              console.log(this.subscribedFriends);
-
             })
             .catch((error) => console.error(error));
         })
@@ -174,21 +174,24 @@ export class MessagesService {
             /* there should not be multiple conversation documents between two users */
             reject("Multiple conversation documents exists between both users");
           }
-          else {
+
+          if (convoInfoQuery_snapshot.size === 0) {
             /* There exists 1 or no 'conversations' document and 'allMessages' subcollection. WriteBatch.set will create these if necessary */
             messageWriteBatch.set(doc(collection(this.firestore, "conversations")).withConverter(convserationInfoConverter), {
               "conversationID": messagesDocumentId,
               "messenger1": currUserEmail,
               "messenger2": otherEmail
             });
-
             messageWriteBatch.set(doc(collection(this.firestore, `messages/${messagesDocumentId}/allMessages`)).withConverter(messageDataConverter), newMessageData);
-
-            /* commit the changes */
-            messageWriteBatch.commit()
-            .then(() => resolve())
-            .catch((error: FirestoreError) => reject(error));
           }
+          else {
+            messageWriteBatch.set(doc(collection(this.firestore, `messages/${messagesDocumentId}/allMessages`)).withConverter(messageDataConverter), newMessageData);
+          }
+
+          /* commit the changes */
+          messageWriteBatch.commit()
+          .then(() => resolve())
+          .catch((error: FirestoreError) => reject(error));
 
         })
         .catch((error: FirestoreError) => reject(error));
@@ -207,14 +210,14 @@ export class MessagesService {
 
       getDocs(conversationInfoQuery)
       .then((convoInfo_snapshot: QuerySnapshot<ConversationInfo>) => {
-        if (
-          convoInfo_snapshot.size > 1) {
-          /* too many documents */
+
+        if (convoInfo_snapshot.size > 1) {
           reject(`There exists multiple conversation documents between the current user and ${otherEmail}`);
         }
         else {
           let messagesDocumentId: string = convoInfo_snapshot.size === 0 ? doc(collection(this.firestore, "messages")).id : convoInfo_snapshot.docs[0].data()['conversationID'];
-          const ret_snapshot = onSnapshot(collection(this.firestore, `messages/${messagesDocumentId}/allMessages`).withConverter(messageDataConverter),
+          const snapshotQuery = query(collection(this.firestore, `messages/${messagesDocumentId}/allMessages`).withConverter(messageDataConverter), orderBy("date"));
+          const ret_snapshot = onSnapshot(snapshotQuery,
           (messages_snapshot: QuerySnapshot<MessageData>) => {
             let newMessages: chatPair[] = [];
 
@@ -230,8 +233,9 @@ export class MessagesService {
               }
             )
 
-            /* publish the new chats */
-            this.chatFeedMessagesSubject.next(newMessages);
+            /* publish the new chats if any exists */
+            if (newMessages.length > 0)
+              this.chatFeedMessagesSubject.next(newMessages);
           },
           (error: FirestoreError) => {
             console.error(error);
@@ -288,13 +292,13 @@ export class MessagesService {
     let currentDay= String(date.getDate()).padStart(2, '0');
     let currentMonth = String(date.getMonth()+1).padStart(2,"0");
     let currentYear = date.getFullYear();
-    let currentHour = date.getHours();
-    let currentMinute = date.getMinutes();
-    let currentMS = date.getMilliseconds();
+    let currentHour = date.getHours() < 10 ? '0' + date.getHours() : date.getHours();
+    let currentMinute = date.getMinutes() < 10 ? '0' + date.getMinutes() : date.getMinutes();
+    let currentSec = date.getSeconds() < 10 ? '0' + date.getSeconds() : date.getSeconds();
 
-    // we will display the date as DD-MM-YYYY H:M:MS
+    // we will display the date as DD-MM-YYYY H:M:S
 
-    return `${currentDay}-${currentMonth}-${currentYear} ${currentHour}:${currentMinute}:${currentMS}`;
+    return `${currentDay}-${currentMonth}-${currentYear} ${currentHour}:${currentMinute}:${currentSec}`;
   }
 
 
