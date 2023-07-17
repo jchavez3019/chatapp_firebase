@@ -1,7 +1,7 @@
 <div class="main-container">
     <p class="chat-header"> where header will be </p>
     <div class="chat-messages">
-        <div class="message-container" [ngStyle]="{'justify-content': message.senderEmail === currUserEmail ? 'end' : null}" *ngFor="let message of currentConversationThread; let i = index">
+        <div class="message-container" [ngStyle]="{'justify-content': message.senderEmail === currUserEmail ? 'end' : null}" *ngFor="let message of currentConversationThread.reverse(); let i = index">
             <div class="message-bubble" [ngClass]="{
                 'sent-message': message.senderEmail === currUserEmail,
                 'received-message': message.senderEmail != currUserEmail}"> 

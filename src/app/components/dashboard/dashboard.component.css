@@ -1,20 +1,27 @@
 .dashboard-container {
+    display: grid;
+    grid-template-rows: 64px 1fr;
     height: 100vh;
     max-height: 100vh;
     position: relative; 
+    overflow: hidden;
 }
 
 .main-container {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: 25% 50% 25%;
+    /* grid-row: 2/21; */
     gap: 20px;
     background: #f7f8fb;
+    height: 100%;
 }
 
 .sidebar-container {
-    grid-column: 1;
+    /* grid-column: 1; */
 }
 
 .chat-container {
-    grid-column: 2/4;
+    /* grid-column: 2/4; */
+    max-height: 80vh;
+    padding: 10px 0px;
 }

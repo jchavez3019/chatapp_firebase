@@ -296,9 +296,10 @@ export class MessagesService {
     let currentMinute = date.getMinutes() < 10 ? '0' + date.getMinutes() : date.getMinutes();
     let currentSec = date.getSeconds() < 10 ? '0' + date.getSeconds() : date.getSeconds();
 
+    /* FIX: should be year, month, then day */
     // we will display the date as DD-MM-YYYY H:M:S
 
-    return `${currentDay}-${currentMonth}-${currentYear} ${currentHour}:${currentMinute}:${currentSec}`;
+    return `${currentYear}-${currentMonth}-${currentDay} ${currentHour}:${currentMinute}:${currentSec}`;
   }
 
 
