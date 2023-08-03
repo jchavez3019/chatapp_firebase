@@ -31,18 +31,7 @@ export class ChatFeedComponent implements OnInit {
         if (otherUser != null && this.chatReceiverUser != otherUser) {
           this.chatReceiverUser = otherUser;
 
-          console.log("Chat feed received other user :" + otherUser.email);
-
-          // const newMessageObservable = this.messagesService.retrieveConversationObservable(otherUser.email);
-          // if (newMessageObservable != null) {
-          //   this.currentConversationThread = [];
-          //   this.retrieveConversationsObservableSubscription = newMessageObservable.subscribe(
-          //     (newMessageData: MessageData[]) => {
-          //       this.currentConversationThread.push(...newMessageData);
-          //       console.log("Received new messages:\n " + this.currentConversationThread);
-          //     }
-          //   );
-          // }
+          // console.log("Chat feed received other user :" + otherUser.email);
 
           /* attempting to grab list by reference */
           this.currentConversationThread = this.messagesService.retrieveChatsByReference(otherUser);
