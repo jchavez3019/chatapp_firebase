@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { MessageData, UserData } from 'src/app/firestore.datatypes';
-import { MessagesService, chatPair } from 'src/app/services/messages.service';
+import { MessagesService } from 'src/app/services/messages.service';
 import { UserService } from 'src/app/services/user.service';
 
 @Component({
@@ -12,62 +12,44 @@ import { UserService } from 'src/app/services/user.service';
 export class ChatFeedComponent implements OnInit {
 
   private chatReceiverUser: UserData | null = null;
-  private messageConversations: conversationLog_t[] = [];
   currentConversationThread: MessageData[] = [];
   currUserEmail: string;
 
   /* subscriptions */
-  private chatFeedMessagesSubjectSubscription: Subscription | null = null;
   private chatReceiverObservableSubscription: Subscription | null = null;
+  private retrieveConversationsObservableSubscription: Subscription | null = null;
 
   constructor(private messagesService: MessagesService, private usersService: UserService) {
 
     this.currUserEmail = this.usersService.getCurrUserEmail();
 
+    this.messagesService.beginRetreivingMessages();
+
     this.chatReceiverObservableSubscription = this.messagesService.chatReceiverObservable.subscribe(
       (otherUser: UserData | null) => {
-        this.chatReceiverUser = otherUser;
-        if (otherUser != null) {
-          const idx = this.messageConversations.findIndex((entry) => entry.chatName === otherUser.email);
-          if (idx != -1) {
-            this.currentConversationThread = this.messageConversations[idx].allMessages;
-          }
+
+        if (otherUser != null && this.chatReceiverUser != otherUser) {
+          this.chatReceiverUser = otherUser;
+
+          console.log("Chat feed received other user :" + otherUser.email);
+
+          // const newMessageObservable = this.messagesService.retrieveConversationObservable(otherUser.email);
+          // if (newMessageObservable != null) {
+          //   this.currentConversationThread = [];
+          //   this.retrieveConversationsObservableSubscription = newMessageObservable.subscribe(
+          //     (newMessageData: MessageData[]) => {
+          //       this.currentConversationThread.push(...newMessageData);
+          //       console.log("Received new messages:\n " + this.currentConversationThread);
+          //     }
+          //   );
+          // }
+
+          /* attempting to grab list by reference */
+          this.currentConversationThread = this.messagesService.retrieveChatsByReference(otherUser);
+
         }
       }
     );
-
-    /* listen to incoming batches of new chats */
-    this.chatFeedMessagesSubjectSubscription = this.messagesService.chatFeedMessagesObservable.subscribe(
-      (retrievedMessages: chatPair[]) => {
-
-        retrievedMessages.forEach(
-          (currChatPair: chatPair) => {
-
-            const idx = this.messageConversations.findIndex((convoLog: conversationLog_t) => convoLog.chatName === currChatPair.chatName);
-            if (idx === -1) {
-              /* if a conversation log does not exist between the user and this friend, create one */
-              const newConvoLog: conversationLog_t = {
-                "chatName": currChatPair.chatName,
-                "allMessages": [currChatPair.messageData]
-              }
-              this.messageConversations.push(newConvoLog);
-            }
-            else {
-              /* append the new messages into the conversation log between the user and this friend */
-              this.messageConversations[idx].allMessages.push(currChatPair.messageData);
-            }
-
-          }
-        );
-
-        /* test viewing all convo logs */
-        console.log(this.messageConversations);
-
-      }
-    );
-
-    /* ready to start subscribing to messages */
-    this.messagesService.beginRetreivingMessages();
 
    }
 
@@ -80,16 +62,16 @@ export class ChatFeedComponent implements OnInit {
   }
 
   private clearSubscriptions() {
-    if (this.chatFeedMessagesSubjectSubscription != null) {
-      this.chatFeedMessagesSubjectSubscription.unsubscribe();
-      this.chatFeedMessagesSubjectSubscription = null;
+
+    if (this.chatReceiverObservableSubscription != null) {
+      this.chatReceiverObservableSubscription.unsubscribe();
+      this.chatReceiverObservableSubscription = null;
+    }
+
+    if (this.retrieveConversationsObservableSubscription != null) {
+      this.retrieveConversationsObservableSubscription.unsubscribe();
+      this.retrieveConversationsObservableSubscription = null;
     }
   }
 
-}
-
-/* interfaces */
-interface conversationLog_t {
-  "chatName": string;
-  "allMessages": MessageData[];
 }
