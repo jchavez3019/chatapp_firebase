@@ -2,10 +2,12 @@ import { Injectable, inject } from '@angular/core';
 import { Auth, Unsubscribe, User, onAuthStateChanged } from '@angular/fire/auth';
 import { BehaviorSubject, Observable, Subject, Subscription, combineLatest, filter, map, of, tap } from 'rxjs';
 import { MessageData, UserData, messageDataConverter } from '../firestore.datatypes';
-import { DocumentChange, Firestore, FirestoreError, QueryDocumentSnapshot, QuerySnapshot, WriteBatch, and, collection, addDoc, doc, getDoc, getDocs, onSnapshot, or, orderBy, query, where, writeBatch, setDoc } from '@angular/fire/firestore';
+import { DocumentChange, Firestore, FirestoreError, QueryDocumentSnapshot, QuerySnapshot, WriteBatch, and, collection, addDoc, doc, getDoc, getDocs, onSnapshot, or, orderBy, limit, query, where, writeBatch, setDoc } from '@angular/fire/firestore';
 
 import { ConversationInfo, convserationInfoConverter } from '../firestore.datatypes';
 import { FriendsService } from './friends.service';
+
+const MAXMESSAGES = 5;
 
 @Injectable({
   providedIn: 'root'
@@ -25,10 +27,12 @@ export class MessagesService {
   /* private subjects */
   private showChatFeedSubject: BehaviorSubject<Boolean> = new BehaviorSubject<Boolean>(false);
   private chatReceiverSubject: BehaviorSubject<UserData | null> = new BehaviorSubject<UserData | null>(null);
+  private newChatSentSubject: Subject<string> = new Subject();
 
   /* public observables */
   showChatFeedObservable: Observable<Boolean> = this.showChatFeedSubject.asObservable();
   chatReceiverObservable: Observable<UserData | null> = this.chatReceiverSubject.asObservable();
+  newChatSentObservable: Observable<string> = this.newChatSentSubject.asObservable();
 
   /* subscriptions */
   private onAuthStateChangedUnsubcribe: Unsubscribe | null = null;
@@ -212,7 +216,10 @@ export class MessagesService {
 
           /* commit the changes */
           messageWriteBatch.commit()
-          .then(() => resolve())
+          .then(() => {
+            this.newChatSentSubject.next(otherEmail);
+            resolve()
+          })
           .catch((error: FirestoreError) => reject(error));
 
         })
@@ -254,19 +261,20 @@ export class MessagesService {
           messagesDocumentId = convoInfo_snapshot.docs[0].data()['conversationID'];
         }
 
-        const snapshotQuery = query(collection(this.firestore, `messages/${messagesDocumentId}/allMessages`).withConverter(messageDataConverter), orderBy("date"));
+        const snapshotQuery = query(collection(this.firestore, `messages/${messagesDocumentId}/allMessages`).withConverter(messageDataConverter), orderBy("date", "desc"), limit(MAXMESSAGES));
         const ret_snapshot = onSnapshot(snapshotQuery,
         (messages_snapshot: QuerySnapshot<MessageData>) => {
 
           let newMessages: MessageData[] = [];
 
-          messages_snapshot.docChanges().forEach(
-            (currMessage: DocumentChange<MessageData>) => {
-              if (currMessage.type === 'added') {
-                newMessages.push(currMessage.doc.data());
-              }
+          /* though the snapshot is in descending order, push the data in ascending order */
+          for (let i = messages_snapshot.docChanges().length - 1; i >= 0; i--) {
+            const currMessage: DocumentChange<MessageData> = messages_snapshot.docChanges()[i];
+
+            if (currMessage.type === "added") {
+              newMessages.push(currMessage.doc.data());
             }
-          )
+          }
 
           /* append to the conversation log */
           const idx = this.messageConversations.findIndex((value: conversationLog_t) => value.chatName === otherEmail);

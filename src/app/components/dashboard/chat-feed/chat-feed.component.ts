@@ -1,5 +1,5 @@
-import { Component, OnInit } from '@angular/core';
-import { Subscription } from 'rxjs';
+import { Component, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Subscription, filter } from 'rxjs';
 import { MessageData, UserData } from 'src/app/firestore.datatypes';
 import { MessagesService } from 'src/app/services/messages.service';
 import { UserService } from 'src/app/services/user.service';
@@ -11,13 +11,17 @@ import { UserService } from 'src/app/services/user.service';
 })
 export class ChatFeedComponent implements OnInit {
 
+  @ViewChild("chat_messages") chat_messages: ElementRef | null = null;
+
   private chatReceiverUser: UserData | null = null;
+  private detachedFromBottom: boolean = false;
   currentConversationThread: MessageData[] = [];
   currUserEmail: string;
 
   /* subscriptions */
   private chatReceiverObservableSubscription: Subscription | null = null;
   private retrieveConversationsObservableSubscription: Subscription | null = null;
+  private newChatObservableSubscription: Subscription | null = null;
 
   constructor(private messagesService: MessagesService, private usersService: UserService) {
 
@@ -40,6 +44,10 @@ export class ChatFeedComponent implements OnInit {
       }
     );
 
+    this.newChatObservableSubscription = this.messagesService.newChatSentObservable.subscribe((receiver: string) => {
+      this.scrollDown();
+    });
+
    }
 
   ngOnInit(): void {
@@ -60,6 +68,33 @@ export class ChatFeedComponent implements OnInit {
     if (this.retrieveConversationsObservableSubscription != null) {
       this.retrieveConversationsObservableSubscription.unsubscribe();
       this.retrieveConversationsObservableSubscription = null;
+    }
+
+    if (this.newChatObservableSubscription != null) {
+      this.newChatObservableSubscription.unsubscribe();
+      this.newChatObservableSubscription = null;
+    }
+  }
+
+  private scrollDown() {
+    if (this.chat_messages != null) {
+      this.chat_messages.nativeElement.scrollTop = this.chat_messages.nativeElement.scrollHeight;
+    }
+  }
+
+  scrollHandler(event: any) {
+    if (event === "top") {
+      console.log("scrolled to top");
+    }
+
+    if (event === "bottom") {
+      console.log("scrolled to bottom");
+      this.detachedFromBottom = false;
+    }
+
+    if (event === "detached_from_bottom") {
+      console.log("detached from bottom");
+      this.detachedFromBottom = true;
     }
   }
 

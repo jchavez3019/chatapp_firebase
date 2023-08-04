@@ -47,6 +47,7 @@ import { RequestsComponent } from './components/dashboard/sidebar/requests/reque
 import { MyFriendsComponent } from './components/dashboard/sidebar/my-friends/my-friends.component';
 import { ChatFeedComponent } from './components/dashboard/chat-feed/chat-feed.component';
 import { ChatFeedFooterComponent } from './components/dashboard/chat-feed/chat-feed-footer/chat-feed-footer.component';
+import { ScrollableDirective } from './directives/scrollable.directive';
 
 
 @NgModule({
@@ -62,7 +63,8 @@ import { ChatFeedFooterComponent } from './components/dashboard/chat-feed/chat-f
     RequestsComponent,
     MyFriendsComponent,
     ChatFeedComponent,
-    ChatFeedFooterComponent
+    ChatFeedFooterComponent,
+    ScrollableDirective
   ],
   imports: [
     BrowserModule,
