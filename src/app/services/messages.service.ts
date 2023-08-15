@@ -2,12 +2,12 @@ import { Injectable, inject } from '@angular/core';
 import { Auth, Unsubscribe, User, onAuthStateChanged } from '@angular/fire/auth';
 import { BehaviorSubject, Observable, Subject, Subscription, combineLatest, filter, map, of, tap } from 'rxjs';
 import { MessageData, UserData, messageDataConverter } from '../firestore.datatypes';
-import { DocumentChange, Firestore, FirestoreError, QueryDocumentSnapshot, QuerySnapshot, WriteBatch, and, collection, addDoc, doc, getDoc, getDocs, onSnapshot, or, orderBy, limit, query, where, writeBatch, setDoc } from '@angular/fire/firestore';
+import { DocumentChange, Firestore, FirestoreError, QueryDocumentSnapshot, QuerySnapshot, WriteBatch, and, collection, addDoc, doc, getDoc, getDocs, onSnapshot, or, orderBy, limit, query, where, writeBatch, setDoc, startAfter, endBefore } from '@angular/fire/firestore';
 
 import { ConversationInfo, convserationInfoConverter } from '../firestore.datatypes';
 import { FriendsService } from './friends.service';
 
-const MAXMESSAGES = 5;
+const MAXMESSAGES = 10;
 
 @Injectable({
   providedIn: 'root'
@@ -228,6 +228,50 @@ export class MessagesService {
 
   }
 
+  retriveChatsByDate(date: string, otherEmail: string) : Promise<MessageData[]> {
+
+    return new Promise((resolve, reject) => {
+
+      /* email of the current user */
+      const currUserEmail: string = <string>this.auth.currentUser?.email;
+
+      /* obtain "conversations" document between the current and other user */
+      const conversationInfoQuery = query(collection(this.firestore, "conversations").withConverter(convserationInfoConverter), or(
+        and(where("messenger1", "==", currUserEmail), where("messenger2", "==", otherEmail)), 
+        and(where("messenger1", "==", otherEmail), where("messenger2", "==", currUserEmail))));
+
+      getDocs(conversationInfoQuery)
+      .then((convoInfo_snapshot: QuerySnapshot<ConversationInfo>) => {
+
+        if (convoInfo_snapshot.size > 1) {
+          reject(`There exists multiple conversation documents between the current user and ${otherEmail}`);
+        }
+
+        let messagesDocumentId: string = convoInfo_snapshot.docs[0].data()['conversationID'];
+
+        const messagesQuery = query(collection(this.firestore, `messages/${messagesDocumentId}/allMessages`).withConverter(messageDataConverter), orderBy("date", "desc"), startAfter(date), limit(MAXMESSAGES));
+
+        getDocs(messagesQuery)
+        .then((messageInfo_snapshot: QuerySnapshot<MessageData>) => {
+
+          let retrievedMessages: MessageData[] = [];
+
+          messageInfo_snapshot.forEach((currMessage: QueryDocumentSnapshot<MessageData>) => {
+            retrievedMessages.push(currMessage.data());
+          });
+
+          resolve(retrievedMessages);
+
+        })
+        .catch((error: FirestoreError) => reject(error));
+
+      })
+      .catch((error: FirestoreError) => reject(error));
+
+      });
+
+  }
+
   private retriveChatsSnapshot(otherEmail: string) : Promise<Unsubscribe> {
 
     return new Promise((resolve, reject) => {
@@ -312,7 +356,7 @@ export class MessagesService {
     let currentSec = date.getSeconds() < 10 ? '0' + date.getSeconds() : date.getSeconds();
 
     /* FIX: should be year, month, then day */
-    // we will display the date as DD-MM-YYYY H:M:S
+    // we will display the date as YYYY-MM-DD H:M:S
 
     return `${currentYear}-${currentMonth}-${currentDay} ${currentHour}:${currentMinute}:${currentSec}`;
   }

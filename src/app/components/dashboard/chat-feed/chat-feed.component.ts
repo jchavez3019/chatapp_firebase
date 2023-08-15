@@ -15,7 +15,9 @@ export class ChatFeedComponent implements OnInit {
 
   private chatReceiverUser: UserData | null = null;
   private detachedFromBottom: boolean = false;
+  private lastDate: string = "";
   currentConversationThread: MessageData[] = [];
+  additionalMessages: MessageData[] = [];
   currUserEmail: string;
 
   /* subscriptions */
@@ -36,6 +38,10 @@ export class ChatFeedComponent implements OnInit {
           this.chatReceiverUser = otherUser;
 
           // console.log("Chat feed received other user :" + otherUser.email);
+
+          /* remove the additional messages since we have switched to a different user */
+          this.additionalMessages = [];
+          this.lastDate = "";
 
           /* attempting to grab list by reference */
           this.currentConversationThread = this.messagesService.retrieveChatsByReference(otherUser);
@@ -85,6 +91,26 @@ export class ChatFeedComponent implements OnInit {
   scrollHandler(event: any) {
     if (event === "top") {
       console.log("scrolled to top");
+
+      /* retrieve additional messages */
+      console.log("Using last date: " + this.lastDate);
+
+      /* if no lastDate is set, use the oldest date from the currentConversationThread */
+      if (this.lastDate === "") {
+        this.lastDate = this.currentConversationThread[0].date;
+      }
+
+      this.messagesService.retriveChatsByDate(this.lastDate, <string>this.chatReceiverUser?.email)
+      .then((retrievedMessages: MessageData[]) => {
+
+        if (retrievedMessages.length != 0) {
+          /* append the older messages and update the lastDate to be the oldest date */
+          this.additionalMessages.push(...retrievedMessages);
+          const lastIdx = this.additionalMessages.length - 1;
+          this.lastDate = this.additionalMessages[lastIdx].date;
+        }
+
+      })
     }
 
     if (event === "bottom") {

@@ -1,6 +1,7 @@
 <div class="main-container">
     <p class="chat-header"> where header will be </p>
     <div class="chat-messages" #chat_messages appScrollable (scrollPosition)="scrollHandler($event)">
+
         <div class="message-container" [ngStyle]="{'justify-content': message.senderEmail === currUserEmail ? 'end' : null}" *ngFor="let message of currentConversationThread.reverse(); let i = index">
             <div class="message-bubble" [ngClass]="{
                 'sent-message': message.senderEmail === currUserEmail,
@@ -9,6 +10,16 @@
             <p class="sent-message-tag"><i>Sent at {{message.date}}</i></p>
             </div>
         </div>
+
+        <div class="message-container" [ngStyle]="{'justify-content': message.senderEmail === currUserEmail ? 'end' : null}" *ngFor="let message of additionalMessages; let i = index">
+            <div class="message-bubble" [ngClass]="{
+                'sent-message': message.senderEmail === currUserEmail,
+                'received-message': message.senderEmail != currUserEmail}"> 
+                <p >{{ message.message }}</p>
+            <p class="sent-message-tag"><i>Sent at {{message.date}}</i></p>
+            </div>
+        </div>
+
     </div>
     <app-chat-feed-footer></app-chat-feed-footer>
 </div>
