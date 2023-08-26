@@ -48,6 +48,7 @@ import { MyFriendsComponent } from './components/dashboard/sidebar/my-friends/my
 import { ChatFeedComponent } from './components/dashboard/chat-feed/chat-feed.component';
 import { ChatFeedFooterComponent } from './components/dashboard/chat-feed/chat-feed-footer/chat-feed-footer.component';
 import { ScrollableDirective } from './directives/scrollable.directive';
+import { getDatabase, provideDatabase } from '@angular/fire/database';
 
 
 @NgModule({
@@ -74,6 +75,7 @@ import { ScrollableDirective } from './directives/scrollable.directive';
     provideFirestore(() => getFirestore()),
     provideAuth(() => getAuth()),
     provideStorage(() => getStorage()),
+    provideDatabase(() => getDatabase()),
     MatToolbarModule,
     MatIconModule,
     MatCardModule,

@@ -1,6 +1,7 @@
 import { Injectable, OnDestroy, Query, inject } from '@angular/core';
 import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, UserProfile, onAuthStateChanged, Unsubscribe } from '@angular/fire/auth';
 import { Firestore, setDoc, doc, query, collection, where, getDocs, QuerySnapshot, updateDoc, DocumentReference, FirestoreError, addDoc } from '@angular/fire/firestore';
+import { Database, OnDisconnect, onDisconnect, ref } from '@angular/fire/database';
 import { Router } from '@angular/router';
 
 /* firebase data types */
@@ -13,6 +14,7 @@ import { BehaviorSubject, Observable } from 'rxjs';
 export class AuthService implements OnDestroy {
 
   private auth: Auth = inject(Auth);
+  private database: Database = inject(Database);
 
   /*
     A quick note on this practice, subjects in services should typically be private. This is because
@@ -37,7 +39,6 @@ export class AuthService implements OnDestroy {
 
   constructor(private router: Router) {
 
-
     /* observes the state of the current user */
     this.unsubscribeOnAuthStateChanged = onAuthStateChanged(this.auth, (credential: User | null) => {
       if (credential) {
@@ -59,6 +60,9 @@ export class AuthService implements OnDestroy {
       this.unsubscribeOnAuthStateChanged();
       this.unsubscribeOnAuthStateChanged = null;
     }
+
+    /* sign out the user if they logged in */
+    this.logout();
   }
 
   authUserLoggedIn() : Boolean {
@@ -73,86 +77,89 @@ export class AuthService implements OnDestroy {
   /* sign up */
   signUp(usercreds: any) : Promise<void> {
 
-    var result = null;
-
     return new Promise((resolve, reject) => {
-      /* from new firebase documenation */
-      createUserWithEmailAndPassword(this.auth, usercreds.email, usercreds.password)
-      .then((userCredential) => {
-        /* at this point the user is signed in and the new user is returned as userCredential */
-        // console.log(userCredential);
 
-        /* update the current user */
-        const prom1 = this.auth.updateCurrentUser(userCredential.user);
+        createUserWithEmailAndPassword(this.auth, usercreds.email, usercreds.password)
+        .then((userCredential) => {
+          /* at this point the user is signed in and the new user is returned as userCredential */
+          // console.log(userCredential);
 
-        /* update the profile of the newly created user */
-        const prom2 = updateProfile(userCredential.user, {
-          displayName: usercreds.displayName,
-          photoURL: "https://www.pngall.com/wp-content/uploads/5/Profile-Male-PNG-Free-Download.png"
-        });
+          /* update the current user */
+          const prom1 = this.auth.updateCurrentUser(userCredential.user);
 
-        /* now create the user's data */
-        const prom3 = this.setUserData(usercreds.email, usercreds.displayName, "https://www.pngall.com/wp-content/uploads/5/Profile-Male-PNG-Free-Download.png");
+          /* update the profile of the newly created user */
+          const prom2 = updateProfile(userCredential.user, {
+            displayName: usercreds.displayName,
+            photoURL: "https://www.pngall.com/wp-content/uploads/5/Profile-Male-PNG-Free-Download.png"
+          });
 
-        /* now update the user's status */
-        const prom4 = this.setStatus("online");
+          /* now create the user's data */
+          const prom3 = this.setUserData(usercreds.email, usercreds.displayName, "https://www.pngall.com/wp-content/uploads/5/Profile-Male-PNG-Free-Download.png");
 
-        Promise.all([prom1, prom2, prom3, prom4])
-        .then(() => {
-          /* navigate to the dashboard and resolve */
-          this.router.navigate(['dashboard']);
+          /* now update the user's status */
+          const prom4 = this.setStatus("online");
 
-          resolve();
+
+          Promise.all([prom1, prom2, prom3, prom4])
+          .then((allPromiseRet: [void, void, void, string]) => {
+            const statusPath = allPromiseRet[3];
+            const dbRef = ref(this.database, statusPath)
+            const disconectObj = onDisconnect(dbRef);
+            disconectObj.set({
+              "online": false
+            });
+
+            resolve();
+          })
+          .catch((error) => {
+            /* error with one of the four promises */
+            reject(error)
+          });
         })
         .catch((error) => {
-          /* error with one of the four promises */
-          reject(error)
-        });
-
-        
-
-      })
-      .catch((error) => {
-        /* one error to check if the case where the user already exists */
-        const errorCode = error.code;
-        const errorMessage = error.message;
-        console.log("error code: " + errorCode + " with msg: " + errorMessage);
-        result = errorCode;
+          const errorCode = error.code;
+          const errorMessage = error.message;
+          reject("error code: " + errorCode + " with msg: " + errorMessage);
+        })
       });
-    });
 
   }
 
   /* login */
-  async login(usercreds: any) {
+  login(usercreds: any): Promise<void> {
 
-    var result;
+    return new Promise((resolve, reject) => {
 
-    await signInWithEmailAndPassword(this.auth, usercreds.email, usercreds.password)
-    .then((userCredential) => {
-      const user = userCredential.user;
-
-      /* update the current user */
-      this.auth.updateCurrentUser(user);
-
-      /* update the user's status */
-      this.setStatus("online")
-      .catch((error) => console.log("Error setting status with message: \n" + error.message));
-
-      /* navigate to the dashboard if there are no errors */
-      this.router.navigate(['dashboard']);
-      
-    })
-    .catch((error) => {
-      const errorCode = error.code;
-      const errorMessage = error.message;
-      console.log("error code: " + errorCode + " with msg: " + errorMessage);
-      result = errorCode;
+      signInWithEmailAndPassword(this.auth, usercreds.email, usercreds.password)
+      .then((userCredential) => {
+        const user = userCredential.user;
+        /* update the current user */
+        this.auth.updateCurrentUser(user)
+        .then(() => {
+          /* update the user's status */
+          this.setStatus("online")
+          .then((statusPath: string) => {
+            console.log("Status path is: " + statusPath);
+            const dbRef = ref(this.database, statusPath);
+            
+            const disconectObj = onDisconnect(dbRef);
+            disconectObj.set({
+              "online": false
+            });
+            resolve();
+          })
+          .catch((error) => reject("Error setting status with message: \n" + error.message));
+        })
+        .catch((error) => reject("error updating current auth user with message: \n" + error.message));
+  
+      })
+      .catch((error) => {
+        const errorCode = error.code;
+        const errorMessage = error.message;
+        reject("error code: " + errorCode + " with msg: " + errorMessage);
+      });
     });
 
-    if (result != null) {
-      throw Error(result);
-    }
   }
 
   /* logout */
@@ -160,9 +167,11 @@ export class AuthService implements OnDestroy {
 
     return new Promise<void>(async (resolve, reject) => {
 
-      /* set the status of the user to offline */
-      await this.setStatus("offline")
-      .catch((error) => reject(error));
+      if (this.auth.currentUser != null) {
+        /* set the status of the user to offline */
+        await this.setStatus("offline")
+        .catch((error) => reject(error));
+      }
 
       /* logout the user */
       await signOut(this.auth)
@@ -205,9 +214,9 @@ export class AuthService implements OnDestroy {
   }
 
   /* Updates the status of a user. If the user's status does not exist, it will be created */
-  setStatus(status: string) : Promise<void> {
+  setStatus(status: string) : Promise<string> {
 
-    return new Promise<void> ((resolve, reject) => {
+    return new Promise<string> ((resolve, reject) => {
 
       let isOnline: Boolean = false;
       if (status === "online")
@@ -227,8 +236,9 @@ export class AuthService implements OnDestroy {
             "email": this.auth.currentUser?.email,
             "online": isOnline
           })
-          .then(() => {
-            resolve();
+          .then((statusDocRef: DocumentReference) => {
+            // var docLocation: string = ;
+            resolve(statusDocRef.path);
           })
           .catch((error: FirestoreError) => {
             reject(error);
@@ -242,7 +252,7 @@ export class AuthService implements OnDestroy {
           const docRef: DocumentReference = doc(this.firestore, `status/${userStatus_snapshot.docs[0].id}`);
           updateDoc(docRef, { ["online"]: isOnline })
           .then(() => {
-            resolve();
+            resolve(docRef.path);
           })
           .catch((error: FirestoreError) => {
             reject(error);

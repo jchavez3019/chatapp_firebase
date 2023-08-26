@@ -56,6 +56,10 @@ export class LoginPageComponent implements OnInit {
   */
   loginButton() {
     this.auth.login(this.usercreds)
+    .then(() => {
+      /* navigate to the dashboard and resolve */
+      this.router.navigate(['dashboard']);
+    })
     .catch((error) => {
       const error_msg = error.message;
       console.log("Error in loginButton with message: " + error_msg);

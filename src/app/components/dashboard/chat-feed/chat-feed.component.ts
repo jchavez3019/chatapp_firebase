@@ -89,6 +89,8 @@ export class ChatFeedComponent implements OnInit {
   }
 
   scrollHandler(event: any) {
+    console.log("Scroll handler received event " + event);
+
     if (event === "top") {
       console.log("scrolled to top");
 
@@ -103,6 +105,8 @@ export class ChatFeedComponent implements OnInit {
       this.messagesService.retriveChatsByDate(this.lastDate, <string>this.chatReceiverUser?.email)
       .then((retrievedMessages: MessageData[]) => {
 
+        console.log("Resolved retrieving messages by date");
+
         if (retrievedMessages.length != 0) {
           /* append the older messages and update the lastDate to be the oldest date */
           this.additionalMessages.push(...retrievedMessages);
@@ -111,6 +115,7 @@ export class ChatFeedComponent implements OnInit {
         }
 
       })
+      .catch((error: any) => console.error("Error retrieving chats by data"));
     }
 
     if (event === "bottom") {
