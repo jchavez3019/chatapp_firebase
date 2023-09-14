@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivate, RouterStateSnapshot, UrlTree, Router } from '@angular/router';
-import { Observable } from 'rxjs';
+import { Observable, Subscription, filter, take } from 'rxjs';
 import { AuthService } from './auth.service';
 
 @Injectable({
@@ -8,25 +8,48 @@ import { AuthService } from './auth.service';
 })
 export class AuthGuard implements CanActivate {
 
-
-  constructor(private authService: AuthService, private router: Router) { }
+  constructor(private authService: AuthService, private router: Router) {}
   
   canActivate(
     route: ActivatedRouteSnapshot,
     state: RouterStateSnapshot): Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree {
 
-      const isUserLoggedIn: Boolean = this.authService.authUserLoggedIn();
+      /* lastLoginStatus has not had the chance to get a login status from the observable,
+      just subscribe ourselves and wait for the first value */
+      return new Promise<boolean>((resolve, reject) => {
 
-      // console.log("Auth guard found user logged in as: " + isUserLoggedIn);
+        console.log("waiting to check if user can navigate")
+        this.authService.hasAuthSignedInObservable
+        .pipe(
+          filter((loginStatus: boolean | null) => {
+            if (loginStatus != null)
+              return true;
+            else
+              return false;
+          }),
+          take(1)
+        )
+        .subscribe(
+          (loggedIn: boolean | null) => {
 
-      if (this.authService.authUserLoggedIn()) {
-        return true;
-      }
-      else {
-        // console.log("You must be logged in");
-        this.router.navigate(['login']);
-        return false;
-      }
+            if (loggedIn == null) {
+              console.error("In auth guard, loggedIn passed as null");
+              reject();
+            }
+
+            if (loggedIn) {
+              resolve(true);
+            }
+            else {
+              console.log("User is not logged in and not allowed to go to dashboard");
+              this.router.navigate(['login']);
+              resolve(false);
+            }
+          }
+        )        
+      });
+
+      
   }
   
 }

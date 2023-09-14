@@ -3,6 +3,8 @@ import { Router } from '@angular/router';
 import { FormControl, Validators } from '@angular/forms';
 import { AuthService } from 'src/app/services/auth.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { FirestoreError } from '@angular/fire/firestore';
+import { AuthErrorCodes } from '@angular/fire/auth';
 
 /* to check if the email is valid */
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
@@ -58,16 +60,18 @@ export class LoginPageComponent implements OnInit {
     this.auth.login(this.usercreds)
     .then(() => {
       /* navigate to the dashboard and resolve */
+      console.log("Logged in; navigating to dashboard");
       this.router.navigate(['dashboard']);
     })
-    .catch((error) => {
-      const error_msg = error.message;
-      console.log("Error in loginButton with message: " + error_msg);
+    .catch((error: any) => {
+      console.error("Error in loginButton with message: ");
+      console.error(error);
 
       // if (error_msg == "auth/wrong-password") {
       //   this.wrong_password = true;
       // }
-      switch(error_msg) {
+
+      switch(error.code) {
         case "auth/wrong-password":
           this.wrong_password = true;
           this.user_not_found = false;
@@ -78,6 +82,8 @@ export class LoginPageComponent implements OnInit {
           this.user_not_found = true;
           this.snackBar.open("User not found", "Close", {duration: 3000});
           break;
+        default:
+          this.snackBar.open("Failed to login", "Close", {duration: 3000});
       }
     });
   }

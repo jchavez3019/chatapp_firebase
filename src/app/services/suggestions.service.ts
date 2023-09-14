@@ -108,11 +108,17 @@ export class SuggestionsService {
               myFriends_snapshot.forEach((user_doc) => { nonSuggestableUsers.push(user_doc.data()['email']) });
               resolve();
             })
-            .catch((error: FirestoreError) => reject(error));
+            .catch((error: FirestoreError) => {
+              console.error(error);
+              reject(error);
+            });
           }
           resolve();
         })
-        .catch((error: FirestoreError) => reject(error));
+        .catch((error: FirestoreError) => {
+          console.error(error);
+          reject(error);
+        });
       });
   
       /* promise for getting all the current user's sent and received friend requests */
@@ -124,7 +130,10 @@ export class SuggestionsService {
           });
           resolve();
         })
-        .catch((error: FirestoreError) => reject(error));
+        .catch((error: FirestoreError) => {
+          console.error(error);
+          reject(error);
+        });
       });
   
       await Promise.all([prom1, prom2])

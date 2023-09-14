@@ -6,8 +6,7 @@ import { Router } from '@angular/router';
 
 /* firebase data types */
 import { UserData, UserStatus, userDataConverter, userStatusConverter } from '../firestore.datatypes';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { emit } from 'process';
+import { BehaviorSubject, Subject, Observable } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -29,11 +28,11 @@ export class AuthService implements OnDestroy {
   */
   /* private subjects */
   private authUserSubject: BehaviorSubject<User | null | undefined> = new BehaviorSubject<User | null | undefined>(this.auth.currentUser);
-  private hasAuthSignedInSubject: BehaviorSubject<Boolean> = new BehaviorSubject<Boolean>(false);
+  private hasAuthSignedInSubject: BehaviorSubject<boolean | null> = new BehaviorSubject<boolean | null>(null);
 
   /* public observables */
   authUsersObservable: Observable<User | null | undefined> = this.authUserSubject.asObservable();
-  hasAuthSignedInObservable: Observable<Boolean> = this.hasAuthSignedInSubject.asObservable();
+  hasAuthSignedInObservable: Observable<boolean | null> = this.hasAuthSignedInSubject.asObservable();
 
   private firestore: Firestore = inject(Firestore);
 
@@ -76,10 +75,12 @@ export class AuthService implements OnDestroy {
   }
 
   authUserLoggedIn() : Boolean {
-    if (typeof(this.auth.currentUser) == null)
+    if ((this.auth.currentUser == null) || this.auth.currentUser == undefined) {
       return false;
-    else
+    }
+    else {
       return true;
+    }
   }
 
   /* sign up */
@@ -119,6 +120,7 @@ export class AuthService implements OnDestroy {
           })
           .catch((error) => {
             /* error with one of the four promises */
+            console.error(error);
             reject(error)
           });
         })
@@ -138,8 +140,12 @@ export class AuthService implements OnDestroy {
 
       /* if a user is already logged in, log them out before creating a new user */
       if (this.authUserLoggedIn()) {
+        console.log(`logging out ${this.auth.currentUser} before logging in ${usercreds.email}`)
         await this.logout()
-        .catch((error) => reject(error));
+        .catch((error) => {
+          console.error(error);
+          reject(error);
+        });
       }
 
       signInWithEmailAndPassword(this.auth, usercreds.email, usercreds.password)
@@ -155,16 +161,21 @@ export class AuthService implements OnDestroy {
             // this.connectionSnapshot();
             resolve();
           })
-          .catch((error) => reject(error));
+          .catch((error) => {
+            console.error(error);
+            reject(error);
+          });
 
         })
-        .catch((error) => reject("error updating current auth user with message: \n" + error.message));
+        .catch((error) => {
+          console.error(error);
+          reject("error updating current auth user with message: \n" + error.message);
+      });
   
       })
       .catch((error) => {
-        const errorCode = error.code;
-        const errorMessage = error.message;
-        reject("error code: " + errorCode + " with msg: " + errorMessage);
+        console.error(error);
+        reject(error);
       });
     });
 
@@ -185,6 +196,7 @@ export class AuthService implements OnDestroy {
           .then(() => {
 
             if (this.onRealtimeStatusUnsubscribe == null) {
+              console.error("onRealtimeStatus snapshot was never created");
               reject("onRealtimeStatus snapshot was never created");
             }
             else {
@@ -195,12 +207,21 @@ export class AuthService implements OnDestroy {
             }
             
           })
-          .catch((error) => reject(error));
+          .catch((error) => {
+            console.error(error);
+            reject(error);
+          });
 
         })
-        .catch((error) => reject(error));
+        .catch((error) => {
+          console.error(error);
+          reject(error);
+        });
 
         
+      })
+      .catch(error => {
+        console.error(error);
       })
 
     });
@@ -231,7 +252,10 @@ export class AuthService implements OnDestroy {
       .then(() => {
         resolve();
       })
-      .catch((error) => reject(error));
+      .catch((error) => {
+        console.error(error);
+        reject(error)
+      });
       
     });
 
@@ -258,7 +282,10 @@ export class AuthService implements OnDestroy {
       set(docRef, newDocData).then(() => {
         resolve(docPath);
       })
-      .catch((error) => reject(error));
+      .catch((error) => {
+        console.error(error);
+        reject(error);
+      });
 
     });
   }
@@ -291,6 +318,7 @@ export class AuthService implements OnDestroy {
             resolve(statusDocRef.path);
           })
           .catch((error: FirestoreError) => {
+            console.error(error);
             reject(error);
           })
         }
@@ -305,11 +333,13 @@ export class AuthService implements OnDestroy {
             resolve(docRef.path);
           })
           .catch((error: FirestoreError) => {
+            console.error(error);
             reject(error);
           });
         }
       })
       .catch((error: FirestoreError) => {
+        console.error(error);
         reject(error);
       });
 
@@ -317,6 +347,9 @@ export class AuthService implements OnDestroy {
 
   }
 
+  /*
+    Gets called whenever the user logs in due to the onAuthChanged method which checks the new auth subscription
+  */
   private connectionSnapshot() : void {
 
     /* this function was called before, no need to recreate the realtime status snapshot */
@@ -324,6 +357,7 @@ export class AuthService implements OnDestroy {
       return;
     }
 
+    /* subscribe to value changes on '.info/connected' which indicates if a user is connected to realtime firebase*/
     this.onRealtimeStatusUnsubscribe = onValue(ref(this.database, '.info/connected'), (data_snapshot: DataSnapshot) => {
       /* if the user is offline, return */
       if (data_snapshot.val() === 'false') 
@@ -339,6 +373,7 @@ export class AuthService implements OnDestroy {
       .then(() => {
         this.setRealtimeStatus('online');
       })
+      .catch((error) => console.error(error));
 
     }, 
     (error: Error) => {
@@ -359,7 +394,10 @@ export class AuthService implements OnDestroy {
           this.onDisconnectObj = null;
           resolve();
         })
-        .catch((error) => reject(error));
+        .catch((error) => {
+          console.error(error);
+          reject(error);
+        });
       }
       else {
         /* if object was null, onDisconnect was already cancelled so we can resolve right away */

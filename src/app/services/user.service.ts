@@ -1,6 +1,7 @@
 import { Injectable, inject, OnDestroy, Query } from '@angular/core';
 import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, Unsubscribe, onAuthStateChanged } from '@angular/fire/auth';
 import { Firestore, collection, query, where, and, or, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, snapToData, QuerySnapshot, QueryFilterConstraint, FirestoreError, DocumentData, orderBy, startAt, endAt, limit, QueryDocumentSnapshot } from '@angular/fire/firestore';
+import { DatabaseReference as RTDatabaseReference, ref as RTref, Database, get as RTget, query as RTquery, Query as RTQuery, equalTo as RTequalTo, orderByChild as RTorderByChild, DataSnapshot as RTDataSnapshot, limitToFirst as RTlimitToFirst } from '@angular/fire/database';
 import { Storage, UploadTask, uploadBytesResumable, ref, StorageReference, TaskEvent, uploadBytes, getDownloadURL } from '@angular/fire/storage';
 import { BehaviorSubject, combineLatest, take, map, tap, filter, Subscription, Observable } from 'rxjs';
 
@@ -9,6 +10,7 @@ import { UserData, UserStatus, userDataConverter, userStatusConverter } from '..
 import { RequestsService } from './requests.service';
 import { FriendsService } from './friends.service';
 import { AuthService } from './auth.service';
+import { DatabaseReference } from '@angular/fire/database';
 
 const searchLimit = 20; // the number of users to return in a search
 
@@ -18,6 +20,7 @@ const searchLimit = 20; // the number of users to return in a search
 export class UserService implements OnDestroy {
 
   private auth: Auth = inject(Auth);
+  private database: Database = inject(Database);
   private firestore: Firestore = inject(Firestore);
   private unsub: any;
 
@@ -290,6 +293,8 @@ export class UserService implements OnDestroy {
         /* create a status query for the current user in the list */
         const userStatusQuery = query(collection(this.firestore, "status").withConverter(userStatusConverter), where("email", "==", currUserEmail));
 
+
+
         /* create a promise to ensure that a status was retrieved for the current user */
         const currProm: Promise<void> = new Promise<void>((prom_resolve, prom_reject) => {
           getDocs(userStatusQuery)
@@ -307,6 +312,15 @@ export class UserService implements OnDestroy {
           })
           .catch((error: FirestoreError) => prom_reject(error));
         });
+
+        /* change promise to use realtime database */
+        // const statusPath = `status/`;
+        // const docRef: DatabaseReference = RTref(this.database, statusPath);
+
+        // RTget(RTquery(docRef, RTorderByChild('email'), RTlimitToFirst(1), RTequalTo(currUserEmail)))
+        // .then((value: RTDataSnapshot) => {
+        //   console.log("printing RTDatasnapshot " + value.key + value.val() +value.child('online'));
+        // })
 
         /* push the promise */
         allUserPromises.push(currProm);

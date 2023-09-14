@@ -105,9 +105,16 @@ export class RequestsService {
             /* emit the user's requests with the newly added requests */
             this.receivedRequestsSubject.next(this.allReceivedRequests);
 
+          })
+          .catch((error: FirestoreError) => {
+            console.error(error);
           });
         }
         
+      },
+
+      error: (error: FirestoreError) => {
+        console.error(error);
       }
     });
 
@@ -131,9 +138,15 @@ export class RequestsService {
         getDocs(otherUsersDataQuery)
         .then((sentRequestsUserData_snapshot: QuerySnapshot<UserData>) => {
           sentRequestsUserData_snapshot.forEach((user_doc) => { this.allSentRequests.push(user_doc.data()); })
+        })
+        .catch((error: FirestoreError) => {
+          console.error(error);
         });
       }
 
+    })
+    .catch((error: Firestore) => {
+      console.error(error);
     });
 
   }
@@ -155,6 +168,9 @@ export class RequestsService {
       this.allSentRequests.push(otherUser);
       this.sentRequestsSubject.next(this.allSentRequests);
 
+    })
+    .catch((error: FirestoreError) => {
+      console.error(error);
     });
 
 
