@@ -28,28 +28,15 @@ export class UserService implements OnDestroy {
 
   authState$ = authState(this.auth);
 
-  
-
-  /* variables */
-  private friendStatuses: UserStatus[] = [];
-
-  /* private subjects */
-  private friendStatusesSubject: BehaviorSubject<UserStatus[]> = new BehaviorSubject<UserStatus[]>([]);
-
-  /* public observables */
-  friendStatusesObservable: Observable<UserStatus[]> = this.friendStatusesSubject.asObservable();
-
   /* subscriptions */
   private onAuthStateChangedUnsubscribe: Unsubscribe | null = null;
   private allFriendsObservableSubscription: Subscription | null = null;
   private friendStatusesUnsubscribe: Unsubscribe | null = null;
 
   private RTFriendStatusUnsubscribes: Unsubscribe[] = [];
-  private RTFriendStatusesBuffered: [string, string][] = [];
-  startRTStatusCollecting: boolean = false;
-  private startCollectingSubject: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false);
-  private RTFriendStatusSubject: Subject<[string,string][]> = new Subject<[string,string][]>();
-  RTFriendStatusObservable: Observable<[string,string][]> = this.RTFriendStatusSubject.asObservable();
+
+  /* public Friend Status map */
+  RTuserFriends: Map<String, String> = new Map<String, String>();
 
   /* current user whose information will be displayed in the dashboard */
   /*NOTE: look into FirestoreConverter */
@@ -109,18 +96,6 @@ export class UserService implements OnDestroy {
     /* listens to updated friends and gets their online status */
     this.allFriendsObservableSubscription = this.friendsService.allFriendsObservable.subscribe((allFriends: UserData[]) => this.snapshotFriendStatuses(allFriends));
 
-    /* waits for first 'true' to be emitted which indicates the an observer wants to start collecting friend statuses */
-    this.startCollectingSubject.pipe(
-      filter((val: boolean) => {
-        return val;
-      }),
-      take(1)
-    ).subscribe(() => {
-      console.log("Starting to collect friend statuses");
-      this.startRTStatusCollecting = true;
-      this.RTFriendStatusSubject.next(this.RTFriendStatusesBuffered);
-      this.RTFriendStatusesBuffered = [];
-    });
   }
 
 
@@ -141,10 +116,6 @@ export class UserService implements OnDestroy {
 
     /* blank emissions */
     this.currentUser.next(undefined);
-    this.friendStatusesSubject.next([]);
-
-    /* reset variables */
-    this.friendStatuses = [];
 
   }
 
@@ -204,10 +175,6 @@ export class UserService implements OnDestroy {
       throw Error(result);
     }
 
-  }
-
-  startCollectingUserStatuses() {
-    this.startCollectingSubject.next(true);
   }
 
   /* update the profile picture of the current user */
@@ -288,80 +255,12 @@ export class UserService implements OnDestroy {
   }
 
 
-  /* Author: Jorge Chavez
-  Description: Gets the online status from a list of users
-  Inputs:
-    users: UserData[] -- list of users from which to check online status
-  Outputs:
-    None:
-  Returns:
-    Promise<Boolean[]> -- Promise that returns online statuses once resolved
-  Effects:
-    None
-  */
-  getUserStatuses(users: UserData[]) : Promise<Boolean[]> {
-
-    return new Promise((resolve, reject) => {
-      let userStatuses: Boolean[] = Array(users.length).fill(false); // array of user statuses to return 
-      let allUserPromises: Promise<void>[] = []; // individual promises for returning each user's status
-
-      /* if no users are given, resolve with empty array */
-      if (users.length == 0)
-        resolve([]);
-
-      /* creates individual promises for each user to get their status */
-      users.forEach((currUser: UserData, currIndex: number) => {
-
-        const currUserEmail = currUser.email;
-
-        /* create a status query for the current user in the list */
-        const userStatusQuery = query(collection(this.firestore, "status").withConverter(userStatusConverter), where("email", "==", currUserEmail));
-
-
-
-        /* create a promise to ensure that a status was retrieved for the current user */
-        const currProm: Promise<void> = new Promise<void>((prom_resolve, prom_reject) => {
-          getDocs(userStatusQuery)
-          .then((UserStatus_snapshot: QuerySnapshot<UserStatus>) => {
-            if (UserStatus_snapshot.size === 0) {
-              prom_reject("No status document exists for user with email: " + currUserEmail);
-            }
-            else if (UserStatus_snapshot.size > 1) {
-              prom_reject("Multiple status documents exists for user with email: " + currUserEmail);
-            }
-            else {
-              userStatuses[currIndex] = UserStatus_snapshot.docs[0].data()['online'];
-              prom_resolve();
-            }
-          })
-          .catch((error: FirestoreError) => prom_reject(error));
-        });
-
-        /* push the promise */
-        allUserPromises.push(currProm);
-    
-      }); 
-
-      /* once all individual user promises have been fulfilled, return all their statuses */
-      Promise.all(allUserPromises)
-      .then(() => resolve(userStatuses))
-      .catch((error: FirestoreError) => reject(error));
-    });
-
-  }
-
   /*
   Description:
     Given a group of users (typically friends) unsubscribe to the previous snapshot on a group of users (if one existed)
     and create a new snapshot on the specified group, listening for their statuses..
   */
   private snapshotFriendStatuses(users: UserData[]) {
-
-    /* unsubscribe to the previous snapshot */
-    if (this.friendStatusesUnsubscribe != null) {
-      this.friendStatusesUnsubscribe();
-      this.friendStatusesUnsubscribe = null;
-    }
 
     /* return nothing since there are no friends to snapshot to */
     if (users.length == 0) {
@@ -370,93 +269,144 @@ export class UserService implements OnDestroy {
 
     const userEmails: string[] = users.map((currUser) => currUser.email);
 
-    const friendStatusQuery = query(collection(this.firestore, "status").withConverter(userStatusConverter), where("email", "in", userEmails));
-    this.friendStatusesUnsubscribe = onSnapshot(friendStatusQuery,
-      (friendStatus_snapshot: QuerySnapshot<UserStatus>) => {
+    /* change promise to use realtime database */
+    const statusPath = `status`;
+    const docRef: DatabaseReference = RTref(this.database, statusPath);
 
-        /* look for only added and modified document changes */
-        friendStatus_snapshot.docChanges().forEach((statusChange) => {
-          if (statusChange.type === "added") {
-            /* adds user statuses */
-            this.friendStatuses.push({
-              "email": statusChange.doc.data()['email'],
-              "online": statusChange.doc.data()['online']
-            });
-            this.friendStatusesSubject.next(this.friendStatuses);
-          }
-          if (statusChange.type === "modified") {
-            /* modified user statuses */
-            const modifiedStatus: UserStatus = statusChange.doc.data();
-            const idx = this.friendStatuses.map((friendUserStatus) => friendUserStatus.email).findIndex((email) => email === modifiedStatus.email);
-            this.friendStatuses[idx].online = modifiedStatus.online;
-            this.friendStatusesSubject.next(this.friendStatuses);
-          }
-        });
+    /* unsubscribe to all snapshots */
+    /* NOTE: create separate function for unsubscribing, lets just add subscriptions for speed */
+    // this.RTFriendStatusUnsubscribes.forEach((unsub: Unsubscribe) => {
+    //   unsub();
+    // });
 
-    });
+    /* add onChildAdded listeners */
+    userEmails.forEach((otherEmail: string) => {
 
-      /* change promise to use realtime database */
-      const statusPath = `status`;
-      const docRef: DatabaseReference = RTref(this.database, statusPath);
+      /* this query is to help get the reference to a user's status via their email */
+      const q = RTquery(docRef, RTorderByChild('email'), RTlimitToFirst(1), RTequalTo(otherEmail));
 
-      /* unsubscribe to all snapshots */
-      /* NOTE: create separate function for unsubscribing, lets just add subscriptions for speed */
-      // this.RTFriendStatusUnsubscribes.forEach((unsub: Unsubscribe) => {
-      //   unsub();
-      // });
+      /* get initial status */
+      RTget(q).then((snapshot: RTDataSnapshot) => {
+        /* snapshot's corresponding email and status */
+        const snapshot_email = snapshot.val()['email'];
+        const snapshot_status = snapshot.val()['online'] ? 'online' : 'offline';
 
-      /* add onChildAdded listeners */
-      userEmails.forEach((otherEmail: string) => {
+        this.RTuserFriends.set(snapshot_email, snapshot_status);
 
-        /* this query is to help get the reference to a user's status via their email */
-        const q = RTquery(docRef, RTorderByChild('email'), RTlimitToFirst(1), RTequalTo(otherEmail));
+      })
+      .catch((error) => {
+        console.log(error);
+      });
 
-        /* get initial status */
-        RTget(q).then((snapshot: RTDataSnapshot) => {
+      /* listen for modifications to status */
+      console.log(`Listening to ${otherEmail} for status changes`);
+      this.RTFriendStatusUnsubscribes.push(
+        RTonChildChanged(q, 
+          (snapshot: RTDataSnapshot) => {
+
           /* snapshot's corresponding email and status */
           const snapshot_email = snapshot.val()['email'];
           const snapshot_status = snapshot.val()['online'] ? 'online' : 'offline';
 
-          if (this.startRTStatusCollecting) {
-            // console.log(`Emitting ${snapshot_email} and ${snapshot_status}`);
-            this.RTFriendStatusSubject.next([[snapshot_email, snapshot_status]]);
-          } 
-          else {
-            // console.log(`Buffering ${snapshot_email} and ${snapshot_status}`);
-            this.RTFriendStatusesBuffered.push([snapshot_email, snapshot_status]);
-          }
+          this.RTuserFriends.set(snapshot_email, snapshot_status)
+
+        }, 
+        (error: any) => {
+          console.error(error);
+        }));
+
+
+      });
+
+  }
+
+  /*
+  Description:
+    Given a group of users (typically friends) unsubscribe to the previous snapshot on a group of users (if one existed)
+    and create a new snapshot on the specified group, listening for their statuses..
+  */
+  getSnapshotFriendStatuses(users: UserData[], onDataFn: (arg1: String, arg2: String, arg3: any) => void, ctx: any) : Unsubscribe[] {
+
+    let ret_unsubscribes: Unsubscribe[] = [];
+
+
+    /* return nothing since there are no friends to snapshot to */
+    if (users.length == 0) {
+      return [];
+    }
+
+    const userEmails: string[] = users.map((currUser) => currUser.email);
+
+    /* change promise to use realtime database */
+    const statusPath = `status`;
+    const docRef: DatabaseReference = RTref(this.database, statusPath);
+
+    /* add onChildAdded listeners */
+    userEmails.forEach((otherEmail: string) => {
+
+      /* this query is to help get the reference to a user's status via their email */
+      const q = RTquery(docRef, RTorderByChild('email'), RTlimitToFirst(1), RTequalTo(otherEmail));
+
+      /* listen for modifications to status */
+      ret_unsubscribes.push(
+        RTonChildChanged(q, 
+          (snapshot: RTDataSnapshot) => {
+  
+          /* snapshot's corresponding email and status */
+          const snapshot_email = snapshot.val()['email'];
+          const snapshot_status = snapshot.val()['online'] ? 'online' : 'offline';
+
+          onDataFn(snapshot_email, snapshot_status, ctx);
+
+        }, 
+        (error: any) => {
+          console.error(error);
+        }));
+
+
+      });
+
+      return ret_unsubscribes;
+
+  }
+
+  /* get the initial status for a friend */
+  getInitialFriendStatuses(users: UserData[], onDataFn: (arg1: String, arg2: String, arg3: any) => void, ctx: any) : void {
+
+    /* return nothing since there are no friends to snapshot to */
+    if (users.length == 0) {
+      return;
+    }
+
+    const userEmails: string[] = users.map((currUser) => currUser.email);
+
+    /* change promise to use realtime database */
+    const statusPath = `status`;
+    const docRef: DatabaseReference = RTref(this.database, statusPath);
+
+    /* add onChildAdded listeners */
+    userEmails.forEach((otherEmail: string) => {
+
+      /* this query is to help get the reference to a user's status via their email */
+      const q = RTquery(docRef, RTorderByChild('email'), RTlimitToFirst(1), RTequalTo(otherEmail));
+
+      /* get initial status */
+      RTget(q).then((snapshot: RTDataSnapshot) => {
+        /* snapshot's corresponding email and status */
+        snapshot.forEach((child: RTDataSnapshot) => {
+          const snapshot_email = child.val()['email'];
+          const snapshot_status = child.val()['online'] ? 'online' : 'offline';
+
+          onDataFn(snapshot_email, snapshot_status, ctx);
         })
-        .catch((error) => {
-          console.log(error);
-        })
-
-        /* listen for modifications to status */
-        console.log(`Listening to ${otherEmail} for status changes`);
-        this.RTFriendStatusUnsubscribes.push(
-          RTonChildChanged(q, 
-            (snapshot: RTDataSnapshot) => {
-
-            /* snapshot's corresponding email and status */
-            const snapshot_email = snapshot.val()['email'];
-            const snapshot_status = snapshot.val()['online'] ? 'online' : 'offline';
-
-            if (this.startRTStatusCollecting) {
-              // console.log(`Emitting ${snapshot_email} and ${snapshot_status}`);
-              this.RTFriendStatusSubject.next([[snapshot_email, snapshot_status]]);
-            } 
-            else {
-              // console.log(`Buffering ${snapshot_email} and ${snapshot_status}`);
-              this.RTFriendStatusesBuffered.push([snapshot_email, snapshot_status]);
-            }
-
-          }, 
-          (error: any) => {
-            console.error(error);
-          })
-        );
-
+        
 
       })
+      .catch((error) => {
+        console.log(error);
+      });
+
+    });
 
   }
 

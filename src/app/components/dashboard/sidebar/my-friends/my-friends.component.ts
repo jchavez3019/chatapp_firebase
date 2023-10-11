@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { Unsubscribe } from '@angular/fire/firestore';
 import { Subscription } from 'rxjs';
 
 /* templates */
@@ -15,52 +16,40 @@ import { UserService } from 'src/app/services/user.service';
 export class MyFriendsComponent implements OnInit {
 
   userFriends: UserData[] = [];
-  RTuserFriends: Map<String, String> = new Map<String ,String>();
-  friendStatuses: UserStatus[] = [];
   RTFriendStatuses:  Map<String, String> = new Map<String, String>();
 
   private allFriendsSubjectSubscription: Subscription | null = null;
-  private friendStatusesSubscription: Subscription | null = null;
-  private RTFriendStatusesSubscription: Subscription | null = null;
+  private RTFriendStatusUnsubscriptions: Unsubscribe[] = [];
 
   constructor(private friendsService: FriendsService, 
     private usersService: UserService,
-    private messagesService: MessagesService) { }
+    private messagesService: MessagesService) {}
 
   ngOnInit(): void {
 
     /* subscribe to received updated friend's list for the current user */
     this.allFriendsSubjectSubscription = this.friendsService.allFriendsObservable.subscribe((updatedFriends: UserData[]) => {
       this.userFriends = updatedFriends;
+
+      /* check if their are any friends whose status you do not have and get listen for their status changes */
+      let newFriends: UserData[] = [];
+      this.userFriends.forEach((user: UserData) => {
+        if (user != undefined && !this.RTFriendStatuses.has(user.email)) {
+          newFriends.push(user);
+        }
+      })
+
+      /* if we have found new friends, get a subscription to their statuses and perform initial query */
+      if (newFriends.length > 0) {
+        /* subscription for modifications to status */
+        this.RTFriendStatusUnsubscriptions.push(...this.usersService.getSnapshotFriendStatuses(newFriends, this._RTFriendUpdateCallback, this));
+
+        /* getting initial status */
+        this.usersService.getInitialFriendStatuses(newFriends, this._RTFriendInitCallback, this);
+      }
+      
     });
 
-    this.allFriendsSubjectSubscription = this.usersService.friendStatusesObservable.subscribe(
-      (userStatuses: UserStatus[]) => {
-
-        // /* initialize an array with all the friend emails in order but offline status */
-        // let newFriendStatuses: UserStatus[] = this.userFriends.map((currFriend: UserData) => {return {'email': currFriend.email, 'online': false}});
-
-        // /* filter results for online statuses and set them true in the newFriendStatuses array */
-        // userStatuses.filter((currUserStatus: UserStatus) => currUserStatus.online === true).forEach((currUserStatus: UserStatus) => {
-        //   const idx = newFriendStatuses.findIndex((initFriendStatus) => initFriendStatus.email === currUserStatus.email);
-        //   newFriendStatuses[idx].online = true;
-        // });
-
-        // /* copy over the new order list of online statuses */
-        // this.friendStatuses = newFriendStatuses;
-
-      }
-    );
-
-    this.RTFriendStatusesSubscription = this.usersService.RTFriendStatusObservable.subscribe((updatedFriends: [String,String][]) => {
-      updatedFriends.forEach((val: [String, String]) => {
-        // console.log(`Received val ${val}`)
-        this.RTFriendStatuses.set(val[0],val[1]);
-        console.log(this.RTFriendStatuses);
-      })
-    })
-
-    this.usersService.startCollectingUserStatuses();
   }
 
   ngOnDestory(): void {
@@ -71,20 +60,27 @@ export class MyFriendsComponent implements OnInit {
       this.allFriendsSubjectSubscription = null;
     }
 
-    if (this.friendStatusesSubscription != null) {
-      this.friendStatusesSubscription.unsubscribe();
-      this.friendStatusesSubscription = null;
-    }
-
-    if (this.RTFriendStatusesSubscription != null) {
-      this.RTFriendStatusesSubscription.unsubscribe();
-      this.friendStatusesSubscription = null;
-    }
+    /* unsubscribe to all status snapshots */
+    this.RTFriendStatusUnsubscriptions.forEach((unsub: Unsubscribe) => {
+      unsub();
+    })
      
   }
 
   openChatFeed(user: UserData) {
     this.messagesService.openchatFeed(user);
+  }
+
+  /* Callback function to be used by usersService to place Statuses into Map */
+  private _RTFriendUpdateCallback(email: String, status: String, ctx: any) : void {
+    ctx.RTFriendStatuses.set(email, status);
+  }
+
+  /* Callback function to be used by usersService to place Statuses into Map */
+  private _RTFriendInitCallback(email: String, status: String, ctx: any) : void {
+    if (!ctx.RTFriendStatuses.has(email)) {
+      ctx.RTFriendStatuses.set(email, status);
+    }
   }
 
 }
