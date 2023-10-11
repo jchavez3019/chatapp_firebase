@@ -1,10 +1,14 @@
 <mat-list>
-    <mat-list-item *ngFor="let user of userFriends; let i = index" (click)="openChatFeed(user);">
+    <!-- <mat-list-item *ngFor="let user of userFriends; let i = index" (click)="openChatFeed(user);"> -->
+        <mat-list-item *ngFor="let user of userFriends; let i = index" (click)="openChatFeed(user);">
         <img matListAvatar src="{{user.photoURL}}">
         <h3 matLine> {{user.displayName}} </h3>
         <div matLine>
-            <p>
+            <!-- <p>
                 {{ (friendStatuses[i] != undefined && friendStatuses[i].online) ? "online" : "offline" }}
+            </p> -->
+            <p>
+                {{ (RTFriendStatuses.has(user.email) && RTFriendStatuses.get(user.email) == 'online') ? "online" : "offline" }}
             </p>
         </div>
         

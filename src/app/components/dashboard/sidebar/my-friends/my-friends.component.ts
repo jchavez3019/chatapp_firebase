@@ -15,10 +15,13 @@ import { UserService } from 'src/app/services/user.service';
 export class MyFriendsComponent implements OnInit {
 
   userFriends: UserData[] = [];
+  RTuserFriends: Map<String, String> = new Map<String ,String>();
   friendStatuses: UserStatus[] = [];
+  RTFriendStatuses:  Map<String, String> = new Map<String, String>();
 
   private allFriendsSubjectSubscription: Subscription | null = null;
   private friendStatusesSubscription: Subscription | null = null;
+  private RTFriendStatusesSubscription: Subscription | null = null;
 
   constructor(private friendsService: FriendsService, 
     private usersService: UserService,
@@ -34,20 +37,30 @@ export class MyFriendsComponent implements OnInit {
     this.allFriendsSubjectSubscription = this.usersService.friendStatusesObservable.subscribe(
       (userStatuses: UserStatus[]) => {
 
-        /* initialize an array with all the friend emails in order but offline status */
-        let newFriendStatuses: UserStatus[] = this.userFriends.map((currFriend: UserData) => {return {'email': currFriend.email, 'online': false}});
+        // /* initialize an array with all the friend emails in order but offline status */
+        // let newFriendStatuses: UserStatus[] = this.userFriends.map((currFriend: UserData) => {return {'email': currFriend.email, 'online': false}});
 
-        /* filter results for online statuses and set them true in the newFriendStatuses array */
-        userStatuses.filter((currUserStatus: UserStatus) => currUserStatus.online === true).forEach((currUserStatus: UserStatus) => {
-          const idx = newFriendStatuses.findIndex((initFriendStatus) => initFriendStatus.email === currUserStatus.email);
-          newFriendStatuses[idx].online = true;
-        });
+        // /* filter results for online statuses and set them true in the newFriendStatuses array */
+        // userStatuses.filter((currUserStatus: UserStatus) => currUserStatus.online === true).forEach((currUserStatus: UserStatus) => {
+        //   const idx = newFriendStatuses.findIndex((initFriendStatus) => initFriendStatus.email === currUserStatus.email);
+        //   newFriendStatuses[idx].online = true;
+        // });
 
-        /* copy over the new order list of online statuses */
-        this.friendStatuses = newFriendStatuses;
+        // /* copy over the new order list of online statuses */
+        // this.friendStatuses = newFriendStatuses;
 
       }
     );
+
+    this.RTFriendStatusesSubscription = this.usersService.RTFriendStatusObservable.subscribe((updatedFriends: [String,String][]) => {
+      updatedFriends.forEach((val: [String, String]) => {
+        // console.log(`Received val ${val}`)
+        this.RTFriendStatuses.set(val[0],val[1]);
+        console.log(this.RTFriendStatuses);
+      })
+    })
+
+    this.usersService.startCollectingUserStatuses();
   }
 
   ngOnDestory(): void {
@@ -60,6 +73,11 @@ export class MyFriendsComponent implements OnInit {
 
     if (this.friendStatusesSubscription != null) {
       this.friendStatusesSubscription.unsubscribe();
+      this.friendStatusesSubscription = null;
+    }
+
+    if (this.RTFriendStatusesSubscription != null) {
+      this.RTFriendStatusesSubscription.unsubscribe();
       this.friendStatusesSubscription = null;
     }
      

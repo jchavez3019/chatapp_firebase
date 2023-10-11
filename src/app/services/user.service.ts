@@ -1,9 +1,9 @@
 import { Injectable, inject, OnDestroy, Query } from '@angular/core';
 import { Auth, authState, User, user, createUserWithEmailAndPassword, UserCredential, updateProfile, AuthSettings, signInWithEmailAndPassword, signOut, Unsubscribe, onAuthStateChanged } from '@angular/fire/auth';
 import { Firestore, collection, query, where, and, or, collectionData, addDoc, CollectionReference, DocumentReference, setDoc, doc, getDoc, getDocs, updateDoc, onSnapshot, DocumentSnapshot, snapToData, QuerySnapshot, QueryFilterConstraint, FirestoreError, DocumentData, orderBy, startAt, endAt, limit, QueryDocumentSnapshot } from '@angular/fire/firestore';
-import { DatabaseReference as RTDatabaseReference, ref as RTref, Database, get as RTget, query as RTquery, Query as RTQuery, equalTo as RTequalTo, orderByChild as RTorderByChild, DataSnapshot as RTDataSnapshot, limitToFirst as RTlimitToFirst } from '@angular/fire/database';
+import { DatabaseReference as RTDatabaseReference, ref as RTref, Database, get as RTget, query as RTquery, Query as RTQuery, equalTo as RTequalTo, orderByChild as RTorderByChild, DataSnapshot as RTDataSnapshot, limitToFirst as RTlimitToFirst, orderByValue as RTorderByValue, orderByKey as RTorderByKey, onChildAdded as RTonChildAdded, onChildChanged as RTonChildChanged } from '@angular/fire/database';
 import { Storage, UploadTask, uploadBytesResumable, ref, StorageReference, TaskEvent, uploadBytes, getDownloadURL } from '@angular/fire/storage';
-import { BehaviorSubject, combineLatest, take, map, tap, filter, Subscription, Observable } from 'rxjs';
+import { BehaviorSubject, combineLatest, take, map, tap, filter, Subscription, Observable, Subject, takeUntil } from 'rxjs';
 
 /* firebase data interfaces */
 import { UserData, UserStatus, userDataConverter, userStatusConverter } from '../firestore.datatypes';
@@ -43,6 +43,13 @@ export class UserService implements OnDestroy {
   private onAuthStateChangedUnsubscribe: Unsubscribe | null = null;
   private allFriendsObservableSubscription: Subscription | null = null;
   private friendStatusesUnsubscribe: Unsubscribe | null = null;
+
+  private RTFriendStatusUnsubscribes: Unsubscribe[] = [];
+  private RTFriendStatusesBuffered: [string, string][] = [];
+  startRTStatusCollecting: boolean = false;
+  private startCollectingSubject: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false);
+  private RTFriendStatusSubject: Subject<[string,string][]> = new Subject<[string,string][]>();
+  RTFriendStatusObservable: Observable<[string,string][]> = this.RTFriendStatusSubject.asObservable();
 
   /* current user whose information will be displayed in the dashboard */
   /*NOTE: look into FirestoreConverter */
@@ -101,6 +108,19 @@ export class UserService implements OnDestroy {
 
     /* listens to updated friends and gets their online status */
     this.allFriendsObservableSubscription = this.friendsService.allFriendsObservable.subscribe((allFriends: UserData[]) => this.snapshotFriendStatuses(allFriends));
+
+    /* waits for first 'true' to be emitted which indicates the an observer wants to start collecting friend statuses */
+    this.startCollectingSubject.pipe(
+      filter((val: boolean) => {
+        return val;
+      }),
+      take(1)
+    ).subscribe(() => {
+      console.log("Starting to collect friend statuses");
+      this.startRTStatusCollecting = true;
+      this.RTFriendStatusSubject.next(this.RTFriendStatusesBuffered);
+      this.RTFriendStatusesBuffered = [];
+    });
   }
 
 
@@ -184,6 +204,10 @@ export class UserService implements OnDestroy {
       throw Error(result);
     }
 
+  }
+
+  startCollectingUserStatuses() {
+    this.startCollectingSubject.next(true);
   }
 
   /* update the profile picture of the current user */
@@ -313,15 +337,6 @@ export class UserService implements OnDestroy {
           .catch((error: FirestoreError) => prom_reject(error));
         });
 
-        /* change promise to use realtime database */
-        // const statusPath = `status/`;
-        // const docRef: DatabaseReference = RTref(this.database, statusPath);
-
-        // RTget(RTquery(docRef, RTorderByChild('email'), RTlimitToFirst(1), RTequalTo(currUserEmail)))
-        // .then((value: RTDataSnapshot) => {
-        //   console.log("printing RTDatasnapshot " + value.key + value.val() +value.child('online'));
-        // })
-
         /* push the promise */
         allUserPromises.push(currProm);
     
@@ -335,6 +350,11 @@ export class UserService implements OnDestroy {
 
   }
 
+  /*
+  Description:
+    Given a group of users (typically friends) unsubscribe to the previous snapshot on a group of users (if one existed)
+    and create a new snapshot on the specified group, listening for their statuses..
+  */
   private snapshotFriendStatuses(users: UserData[]) {
 
     /* unsubscribe to the previous snapshot */
@@ -374,6 +394,69 @@ export class UserService implements OnDestroy {
         });
 
     });
+
+      /* change promise to use realtime database */
+      const statusPath = `status`;
+      const docRef: DatabaseReference = RTref(this.database, statusPath);
+
+      /* unsubscribe to all snapshots */
+      /* NOTE: create separate function for unsubscribing, lets just add subscriptions for speed */
+      // this.RTFriendStatusUnsubscribes.forEach((unsub: Unsubscribe) => {
+      //   unsub();
+      // });
+
+      /* add onChildAdded listeners */
+      userEmails.forEach((otherEmail: string) => {
+
+        /* this query is to help get the reference to a user's status via their email */
+        const q = RTquery(docRef, RTorderByChild('email'), RTlimitToFirst(1), RTequalTo(otherEmail));
+
+        /* get initial status */
+        RTget(q).then((snapshot: RTDataSnapshot) => {
+          /* snapshot's corresponding email and status */
+          const snapshot_email = snapshot.val()['email'];
+          const snapshot_status = snapshot.val()['online'] ? 'online' : 'offline';
+
+          if (this.startRTStatusCollecting) {
+            // console.log(`Emitting ${snapshot_email} and ${snapshot_status}`);
+            this.RTFriendStatusSubject.next([[snapshot_email, snapshot_status]]);
+          } 
+          else {
+            // console.log(`Buffering ${snapshot_email} and ${snapshot_status}`);
+            this.RTFriendStatusesBuffered.push([snapshot_email, snapshot_status]);
+          }
+        })
+        .catch((error) => {
+          console.log(error);
+        })
+
+        /* listen for modifications to status */
+        console.log(`Listening to ${otherEmail} for status changes`);
+        this.RTFriendStatusUnsubscribes.push(
+          RTonChildChanged(q, 
+            (snapshot: RTDataSnapshot) => {
+
+            /* snapshot's corresponding email and status */
+            const snapshot_email = snapshot.val()['email'];
+            const snapshot_status = snapshot.val()['online'] ? 'online' : 'offline';
+
+            if (this.startRTStatusCollecting) {
+              // console.log(`Emitting ${snapshot_email} and ${snapshot_status}`);
+              this.RTFriendStatusSubject.next([[snapshot_email, snapshot_status]]);
+            } 
+            else {
+              // console.log(`Buffering ${snapshot_email} and ${snapshot_status}`);
+              this.RTFriendStatusesBuffered.push([snapshot_email, snapshot_status]);
+            }
+
+          }, 
+          (error: any) => {
+            console.error(error);
+          })
+        );
+
+
+      })
 
   }
 

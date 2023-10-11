@@ -67,10 +67,6 @@ export class LoginPageComponent implements OnInit {
       console.error("Error in loginButton with message: ");
       console.error(error);
 
-      // if (error_msg == "auth/wrong-password") {
-      //   this.wrong_password = true;
-      // }
-
       switch(error.code) {
         case "auth/wrong-password":
           this.wrong_password = true;
