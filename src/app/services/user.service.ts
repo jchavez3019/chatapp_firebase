@@ -33,11 +33,6 @@ export class UserService implements OnDestroy {
   private allFriendsObservableSubscription: Subscription | null = null;
   private friendStatusesUnsubscribe: Unsubscribe | null = null;
 
-  private RTFriendStatusUnsubscribes: Unsubscribe[] = [];
-
-  /* public Friend Status map */
-  RTuserFriends: Map<String, String> = new Map<String, String>();
-
   /* current user whose information will be displayed in the dashboard */
   /*NOTE: look into FirestoreConverter */
   currentUser: BehaviorSubject<UserData | undefined> = new BehaviorSubject<UserData | undefined>({
@@ -54,7 +49,6 @@ export class UserService implements OnDestroy {
     this.onAuthStateChangedUnsubscribe = onAuthStateChanged(this.auth, (credential: User | null) => {
       if (credential) {
         /* perform initializations */
-        console.log("logged in; performing user initialization");
         this.initializeAll();  
       } 
       else {
@@ -70,6 +64,18 @@ export class UserService implements OnDestroy {
     this.resetFields();
   }
 
+  /*
+  Description:
+    Initializes the user service and gets the current user's data once Auth as logged in. 
+  Inputs:
+    None
+  Outputs:
+    None
+  Returns:
+    None
+  Effects:
+    Creates snapshot on current user
+  */
   initializeAll() {
     /* get the user's uid */
     const userId = this.auth.currentUser?.uid;
@@ -92,9 +98,6 @@ export class UserService implements OnDestroy {
         console.log("Error in snapshot: " + error);
       }
     });
-
-    /* listens to updated friends and gets their online status */
-    this.allFriendsObservableSubscription = this.friendsService.allFriendsObservable.subscribe((allFriends: UserData[]) => this.snapshotFriendStatuses(allFriends));
 
   }
 
@@ -154,6 +157,17 @@ export class UserService implements OnDestroy {
     }
   }
 
+  /*
+  Description:
+    Updates the nickname of the current user, otherwise is their email by default.
+  Inputs:
+    newname -- the new nickname of the current user
+  Outputs:
+    None
+  Returns:
+    None
+  Effects:
+  */
   async updateNickname(newname: string) {
     var result = null;
 
@@ -177,7 +191,18 @@ export class UserService implements OnDestroy {
 
   }
 
-  /* update the profile picture of the current user */
+  /*
+  Description:
+    Updates the profile picture of the current user.
+  Inputs:
+    file -- the image to be used as the new profile picture of the current user
+  Outputs:
+    None
+  Returns:
+    None
+  Effects:
+    None
+  */
   updateProfilePic(file: any) {
 
     /* gather necessary information */
@@ -192,7 +217,6 @@ export class UserService implements OnDestroy {
       uploadTask.on('state_changed',
       (snapshot) => {
         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        console.log("Upload is " + progress + "% done");
         switch (snapshot.state) {
           case 'paused':
             break;
@@ -207,7 +231,6 @@ export class UserService implements OnDestroy {
         // Handle successful uploads on complete
         // For instance, get the download URL: https://firebasestorage.googleapis.com/...
         getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-          console.log('File available at', downloadURL);
 
           /* update the usr's doc with the new photoURL */
           const userDoc = doc(this.firestore, `users/${userId}`);
@@ -238,7 +261,18 @@ export class UserService implements OnDestroy {
     }
   }
 
-  /* get current user */
+  /*
+  Description:
+    Gets the current user and their UserData
+  Inputs:
+    None
+  Outputs:
+    None
+  Returns:
+    Promise<DocumentSnapshot<UserData>> -- a document snapshot of the current user's UserData
+  Effects:
+    None
+  */
   getCurrentUser() : Promise<DocumentSnapshot<UserData>> {
     /* get user auth uid */
     const userId = this.auth.currentUser?.uid;
@@ -254,76 +288,20 @@ export class UserService implements OnDestroy {
     return <string> this.auth.currentUser?.email;
   }
 
-
   /*
   Description:
-    Given a group of users (typically friends) unsubscribe to the previous snapshot on a group of users (if one existed)
-    and create a new snapshot on the specified group, listening for their statuses..
-  */
-  private snapshotFriendStatuses(users: UserData[]) {
-
-    /* return nothing since there are no friends to snapshot to */
-    if (users.length == 0) {
-      return;
-    }
-
-    const userEmails: string[] = users.map((currUser) => currUser.email);
-
-    /* change promise to use realtime database */
-    const statusPath = `status`;
-    const docRef: DatabaseReference = RTref(this.database, statusPath);
-
-    /* unsubscribe to all snapshots */
-    /* NOTE: create separate function for unsubscribing, lets just add subscriptions for speed */
-    // this.RTFriendStatusUnsubscribes.forEach((unsub: Unsubscribe) => {
-    //   unsub();
-    // });
-
-    /* add onChildAdded listeners */
-    userEmails.forEach((otherEmail: string) => {
-
-      /* this query is to help get the reference to a user's status via their email */
-      const q = RTquery(docRef, RTorderByChild('email'), RTlimitToFirst(1), RTequalTo(otherEmail));
-
-      /* get initial status */
-      RTget(q).then((snapshot: RTDataSnapshot) => {
-        /* snapshot's corresponding email and status */
-        const snapshot_email = snapshot.val()['email'];
-        const snapshot_status = snapshot.val()['online'] ? 'online' : 'offline';
-
-        this.RTuserFriends.set(snapshot_email, snapshot_status);
-
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-
-      /* listen for modifications to status */
-      console.log(`Listening to ${otherEmail} for status changes`);
-      this.RTFriendStatusUnsubscribes.push(
-        RTonChildChanged(q, 
-          (snapshot: RTDataSnapshot) => {
-
-          /* snapshot's corresponding email and status */
-          const snapshot_email = snapshot.val()['email'];
-          const snapshot_status = snapshot.val()['online'] ? 'online' : 'offline';
-
-          this.RTuserFriends.set(snapshot_email, snapshot_status)
-
-        }, 
-        (error: any) => {
-          console.error(error);
-        }));
-
-
-      });
-
-  }
-
-  /*
-  Description:
-    Given a group of users (typically friends) unsubscribe to the previous snapshot on a group of users (if one existed)
-    and create a new snapshot on the specified group, listening for their statuses..
+    Given a group of users and a callback function, return a list of snapshot Unsubscriptions and implement the callback
+    function on the snapshots of the users' statuses. 
+  Inputs:
+    users UserData[] -- the array of users whose status we are going to listen to
+    onDataFn (arg1: String, arg2: String, arg3: any) => void  -- the callback function to implement on status changes per user
+    ctx any -- the context of the parent script to call any of its variables in the callback function
+  Outputs:
+    None
+  Returns:
+    Unsubscribe[] -- unsubscribe functions per user
+  Effects:
+    Creates snapshots per user. Should use this function wisely so that duplicate snapshots are not created for the same users.
   */
   getSnapshotFriendStatuses(users: UserData[], onDataFn: (arg1: String, arg2: String, arg3: any) => void, ctx: any) : Unsubscribe[] {
 
@@ -370,7 +348,20 @@ export class UserService implements OnDestroy {
 
   }
 
-  /* get the initial status for a friend */
+  /*
+  Description:
+    Gets the initial online statuses for a specified group of users. 
+  Inputs:
+    users UserData[] -- the array of users whose status we are going to retrieve
+    onDataFn (arg1: String, arg2: String, arg3: any) => void  -- the callback function to implement once the status is retrieved per user
+    ctx any -- the context of the parent script to call any of its variables in the callback function
+  Outputs:
+    None
+  Returns:
+    None
+  Effects:
+    None
+  */
   getInitialFriendStatuses(users: UserData[], onDataFn: (arg1: String, arg2: String, arg3: any) => void, ctx: any) : void {
 
     /* return nothing since there are no friends to snapshot to */
@@ -410,8 +401,19 @@ export class UserService implements OnDestroy {
 
   }
 
-  /* instant search for add friend component */
-  async instantSearch(textSearch: string) {
+  /*
+  Description:
+    Performs a search for users
+  Inputs:
+    textSearch: string -- the user to search for
+  Outputs:
+    None
+  Returns:
+    searchResults: Promise<UserData[]> -- the list of users who matched the search
+  Effects:
+    None
+  */
+  async instantSearch(textSearch: string) : Promise<UserData[]> {
 
     let searchResults: UserData[] = [];
     await getDocs(query(collection(this.firestore, 'users').withConverter(userDataConverter), orderBy("lowercaseName"), startAt(textSearch), endAt(textSearch + '\uf8ff'), limit(searchLimit) ))
@@ -436,6 +438,18 @@ export class UserService implements OnDestroy {
     return searchResults;
   }
 
+  /*
+  Description:
+    Unsubscribes to the snapshot for the current user and their UserData
+  Inputs:
+    None
+  Outputs:
+    None
+  Returns:
+    None
+  Effects:
+    Kills snapshot of current user
+  */
   unsubscribeAll() {
     if (this.unsub != null) {
       this.unsub();

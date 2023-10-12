@@ -1,5 +1,13 @@
 <div class="main-container">
-    <p class="chat-header"> where header will be </p>
+
+    <div class="chat-header"> 
+        <div class="chat-header-division">
+            <img class="chat-header-division-img" [ngClass]="[(chatReceiverUser != null && otherUserStatuses.has(chatReceiverUser.email) && otherUserStatuses.get(chatReceiverUser.email) == 'online') ? 'chat-header-img-online': 'chat-header-img-offline']" src="{{(chatReceiverUser != null) ? chatReceiverUser.photoURL : 'https://www.pngall.com/wp-content/uploads/5/Profile-Male-PNG-Free-Download.png'}}">
+            
+            <h1 class="chat-header-otherName"> {{(chatReceiverUser != null) ? chatReceiverUser.displayName : ""}} </h1>
+        </div>
+    </div>
+
     <div class="chat-messages" #chat_messages appScrollable (scrollPosition)="scrollHandler($event)">
 
         <div class="message-container" [ngStyle]="{'justify-content': message.senderEmail === currUserEmail ? 'end' : null}" *ngFor="let message of currentConversationThread.reverse(); let i = index">
@@ -21,6 +29,7 @@
         </div>
 
     </div>
+
     <app-chat-feed-footer></app-chat-feed-footer>
 </div>
 

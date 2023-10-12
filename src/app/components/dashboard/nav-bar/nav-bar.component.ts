@@ -23,6 +23,18 @@ export class NavBarComponent implements OnInit {
   ngOnInit(): void {
   }
 
+  /*
+  Description:
+    Logs out the current user from the application and returns them to the login page.
+  Inputs:
+    None
+  Outputs:
+    None
+  Returns:
+    None
+  Effects:
+    Logs out the current user from the application and from Firestore
+  */
   logoutButton() {
 
     /* need to unsubscribe from all subjects and snapshots */

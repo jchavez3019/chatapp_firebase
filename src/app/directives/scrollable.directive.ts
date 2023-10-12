@@ -1,6 +1,6 @@
 import { Directive, HostListener, EventEmitter, Output, ElementRef } from '@angular/core';
 
-const DISPLAY_LOGS = false;
+const DISPLAY_LOGS = false; // displays information about the scrolling directive for debugging purposes
 
 @Directive({
   selector: '[appScrollable]'

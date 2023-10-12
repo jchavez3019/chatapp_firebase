@@ -18,7 +18,7 @@ export class AuthGuard implements CanActivate {
       just subscribe ourselves and wait for the first value */
       return new Promise<boolean>((resolve, reject) => {
 
-        console.log("waiting to check if user can navigate")
+        // console.log("waiting to check if user can navigate")
         this.authService.hasAuthSignedInObservable
         .pipe(
           filter((loginStatus: boolean | null) => {
@@ -41,7 +41,6 @@ export class AuthGuard implements CanActivate {
               resolve(true);
             }
             else {
-              console.log("User is not logged in and not allowed to go to dashboard");
               this.router.navigate(['login']);
               resolve(false);
             }

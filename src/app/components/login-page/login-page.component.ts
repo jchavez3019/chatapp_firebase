@@ -47,20 +47,39 @@ export class LoginPageComponent implements OnInit {
   }
 
   /*
+  Description:
     Takes the user to the sign up page
+  Inputs:
+    None
+  Outputs:
+    None
+  Returns:
+    None
+  Effects:
+    Navigates to signup page
   */
   signupButton() {
     this.router.navigate(['signup']);
   }
 
-  /* 
-    Logs the user into firebase
+  /*
+  Description:
+    Calls a service to log the user into Firebase and navigates to dashboard on success.
+  Inputs:
+    None
+  Outputs:
+    None
+  Returns:
+    None
+  Effects:
+    Logs in current user
+    Navigates to dashboard
   */
   loginButton() {
     this.auth.login(this.usercreds)
     .then(() => {
       /* navigate to the dashboard and resolve */
-      console.log("Logged in; navigating to dashboard");
+      // console.log("Logged in; navigating to dashboard");
       this.router.navigate(['dashboard']);
     })
     .catch((error: any) => {

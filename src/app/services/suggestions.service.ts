@@ -92,6 +92,18 @@ export class SuggestionsService {
     }
   }
 
+  /*
+  Description:
+    Curates a list of friend suggestions for the current user.
+  Inputs:
+    None
+  Outputs:
+    None
+  Returns:
+    None
+  Effects:
+    None
+  */
   async initialBasicSuggestions() {
 
       let nonSuggestableUsers: string[] = [<string>this.auth.currentUser?.email];
@@ -141,7 +153,7 @@ export class SuggestionsService {
   
       /* create the initial basic suggestions */
       let newSuggestions: UserData[] = [];
-      this.recursiveQuery("", newSuggestionsDesiredLength, nonSuggestableUsers, newSuggestions);
+      this._recursiveQuery("", newSuggestionsDesiredLength, nonSuggestableUsers, newSuggestions);
   
       /* subscribed to new friends/sentRequests/receivedRequests to delete entries from suggestions if necessary */
       combineLatest([this.requestsService.sentRequestsObservable, this.requestsService.receivedRequestsObservable, this.friendsService.allFriendsObservable]).pipe(
@@ -149,8 +161,7 @@ export class SuggestionsService {
         map(([sentRequests, receivedRequests, friends], i) => {
           /* returns the emails from all 3 observables into a single array */
           return Array(...sentRequests.map((user_data) => user_data.email), ...receivedRequests.map((user_data) => user_data.email), ...friends.map((user_data) => user_data.email));
-        }),
-        tap((usersNotToSuggest: string[]) => console.log("suggestions curated nonsuggestableUsers:\n" + usersNotToSuggest)),
+        })
       )
       .subscribe((usersNotToSuggest: string[]) => {
   
@@ -169,7 +180,22 @@ export class SuggestionsService {
   }
 
   /* helper function for building up suggestions */
-  recursiveQuery(startingEmail: string, desiredLength: number, nonSuggestableUsers: string[], newSuggestions: UserData[]) {
+  /*
+  Description:
+    Recursive helper function that retrieves an additional number of users and tries to fill up the valid array of
+    suggestable users until there desired length is met or there is not enough users in the database
+  Inputs:
+    startingEmail: string -- the email to start the search with in the range query
+    desiredLength: number -- the number of desired users in the suggestions array
+    nonSuggestableUsers: string[] -- list of users that are not suggestable
+  Outputs:
+    newSuggestions: UserData[] -- the list of user friend suggestions
+  Returns:
+    None
+  Effects:
+    None
+  */
+  private _recursiveQuery(startingEmail: string, desiredLength: number, nonSuggestableUsers: string[], newSuggestions: UserData[]) {
 
     let userQuery;
     if (startingEmail == "") {
@@ -219,11 +245,23 @@ export class SuggestionsService {
       }
 
       /* recursively seek more users until the newSuggestions array is at the desired length */
-      this.recursiveQuery(lastEmail, desiredLength, nonSuggestableUsers, newSuggestions);
+      this._recursiveQuery(lastEmail, desiredLength, nonSuggestableUsers, newSuggestions);
       
     })
   }
 
+  /*
+  Description:
+    Unsubscribes to all subscriptions used in this service
+  Inputs:
+    None
+  Outputs:
+    None
+  Returns:
+    None
+  Effects:
+    Ends combineSubscription
+  */
   unsubscribeAll() {
     if (this.combineSubscription != null) {
       this.combineSubscription.unsubscribe();

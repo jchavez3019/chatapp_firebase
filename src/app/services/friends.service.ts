@@ -154,7 +154,6 @@ export class FriendsService {
 
                 /* emit the data for all the friends */
                 this.allFriendsSubject.next(updatedFriendsUserData);
-                console.log();
               })
               .catch((error: FirestoreError) => console.log(error));
             }

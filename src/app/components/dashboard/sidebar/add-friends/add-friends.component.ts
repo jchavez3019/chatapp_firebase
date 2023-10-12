@@ -55,26 +55,39 @@ export class AddFriendsComponent implements OnInit, OnDestroy {
       this.suggestionsSubjectSubscription.unsubscribe();
   }
 
+  /*
+  Description:
+    Given UserData, send a friend request from the current user to the other user
+  Inputs:
+    user: UserData -- the other user to add as a friend
+  Outputs:
+    None
+  Returns:
+    None
+  Effects:
+    Adds a friend request in Firebase
+  */
   addFriend(user: UserData) {
     this.requestsService.addRequest(user.email)
     .then(() => {
-
-      /* now remove the user from the local users list */
-      // for (let i = 0; i < this.users.length; i++) {
-      //   const currUserEmail = this.users[i].email;
-
-      //   if (user.email === currUserEmail) {
-      //     this.users.splice(i, 1);
-      //     break;
-      //   }
-      // }
-
 
       /* display a message alerting that a request was successful */
       this.snackBar.open('Request Sent', 'Okay', { duration: 3000 });
     });
   }
 
+  /*
+  Description:
+    Retrives a list of users based on a given search.
+  Inputs:
+    $event: any -- the input text for the search
+  Outputs:
+    this.usersToAdd: UserData[] -- suggestions based on the search results
+  Returns:
+    None
+  Effects:
+    Updates suggestable users based on results
+  */
   async instantSearch($event: any) {
       let q = $event.target.value;
       if (q != '') {

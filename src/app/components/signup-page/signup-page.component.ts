@@ -43,8 +43,17 @@ export class SignupPageComponent implements OnInit {
   }
 
   /*
-    Uses firestore auth to create a new user. 
-    Async because auth.signUp (also async) must communicate with Firestore
+  Description:
+    Uses Firestore auth to create a new user. Asynchronous as it must use auth.Signup which is also async
+    to communicate with Firestore. 
+  Inputs:
+    None
+  Outputs:
+    None
+  Returns:
+    None
+  Effects:
+    Creates new user in Firestore on success
   */
   createAccountButton() {
     /* await result from firestore */

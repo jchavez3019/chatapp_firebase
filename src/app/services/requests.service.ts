@@ -120,6 +120,19 @@ export class RequestsService {
 
   }
 
+  /* Author: Jorge Chavez
+    Description: 
+      This populates the 'allSentRequests' array for the first time to determine who the user has sent
+      friend requests towards in the past. 
+    Inputs:
+      None
+    Outputs:
+      None
+    Returns:
+      None
+    Effects:
+      * Populates and asynchonously pushes users to the 'allSentRequests' array
+  */
   initializeSentRequests() {
 
     const sentRequestsQuery = query(collection(this.firestore, "requests").withConverter(requestDataConverter), where("sender", "==", this.auth.currentUser?.email));
@@ -152,6 +165,18 @@ export class RequestsService {
   }
 
   /* send a friend request from the current user to the specified user */
+  /*
+  Description:
+    Sends a friend request from the current user to the specified user
+  Inputs:
+    newToRequest: string -- the other user to send a friend request to
+  Outputs:
+    None
+  Returns:
+    Promise<DocumentReference<RequestData>> -- The document reference for the created request
+  Effects:
+    Adds a friend request to Firestore
+  */
   addRequest(newToRequest: string): Promise<DocumentReference<RequestData>> {
 
     let newFriendRequest: RequestData = {
@@ -423,13 +448,24 @@ export class RequestsService {
     .catch((error: FirestoreError) => console.log("Error getting request to delete with message: " + error.message));
   }
 
-    /* unsubcribes to any and all subjects/snapshots */
-    unsubcribeAll() {
-      if (this.receivedRequestsOnsnapshotUnsubscribe != null) {
-        this.receivedRequestsOnsnapshotUnsubscribe();
-        this.receivedRequestsOnsnapshotUnsubscribe = null;
-      }
-      
+  /*
+  Description:
+    Unsubscribes to any and all observables/snapshots used in this service
+  Inputs:
+    None
+  Outputs:
+    None
+  Returns:
+    None
+  Effects:
+    Ends receivedRequestsOnsnapshot
+  */
+  unsubcribeAll() {
+    if (this.receivedRequestsOnsnapshotUnsubscribe != null) {
+      this.receivedRequestsOnsnapshotUnsubscribe();
+      this.receivedRequestsOnsnapshotUnsubscribe = null;
     }
+    
+  }
 
 }

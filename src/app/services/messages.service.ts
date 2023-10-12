@@ -87,9 +87,6 @@ export class MessagesService {
   beginRetreivingMessages() {
     this.allFriendsObservableSubscription = this.friendsService.allFriendsObservable
     .pipe(
-      tap(
-        (newFriends: UserData[]) => console.log(`new friend emails: ${newFriends.map((friends) => friends.email)}`)
-      ),
       map(
         (updatedFriends: UserData[]) => {
 
